@@ -100,7 +100,7 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
                                     <h3 className="text-xl font-semibold">{post.title}</h3>
                                     <div className="flex items-center gap-3">
                                         <div className="flex items-center gap-1 text-muted-foreground">
-                                            <Heart className="h-5 w-5" />
+                                            <Heart className="h-5 w-5 hover:text-destructive" />
                                             <span className="text-sm">{post.likes?.length || 0}</span>
                                         </div>
                                         {isOwner && (

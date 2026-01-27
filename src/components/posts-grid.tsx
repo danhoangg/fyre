@@ -123,24 +123,30 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
                                 )}
 
                                 {/* Action Buttons */}
-                                <div className="flex gap-2 pt-2">
-                                    <Button
-                                        variant={expandedPosts[post.id]?.ingredients ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => toggleSection(post.id, 'ingredients')}
-                                    >
-                                        <ChefHat className="h-4 w-4" />
-                                        <span>Ingredients</span>
-                                    </Button>
-                                    <Button
-                                        variant={expandedPosts[post.id]?.details ? "default" : "outline"}
-                                        size="sm"
-                                        onClick={() => toggleSection(post.id, 'details')}
-                                    >
-                                        <BookOpen className="h-4 w-4" />
-                                        <span>Details</span>
-                                    </Button>
-                                </div>
+                                {(post.ingredients || post.directions || post.nutrition) && (
+                                    <div className="flex gap-2 pt-2">
+                                        {post.ingredients && (
+                                            <Button
+                                                variant={expandedPosts[post.id]?.ingredients ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => toggleSection(post.id, 'ingredients')}
+                                            >
+                                                <ChefHat className="h-4 w-4" />
+                                                <span>Ingredients</span>
+                                            </Button>
+                                        )}
+                                        {(post.directions || post.nutrition) && (
+                                            <Button
+                                                variant={expandedPosts[post.id]?.details ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => toggleSection(post.id, 'details')}
+                                            >
+                                                <BookOpen className="h-4 w-4" />
+                                                <span>Details</span>
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* Collapsible Ingredients Section */}
                                 {expandedPosts[post.id]?.ingredients && post.ingredients && (

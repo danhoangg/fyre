@@ -5,20 +5,76 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useUser } from "@/lib/user-context";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { CirclePlus } from "lucide-react";
+import {
+    CirclePlus,
+    Check
+} from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
+import { Spinner } from "@/components/ui/spinner";
+import { toggleFollow, editProfile } from "@/services/social";
+import { ErrorComponent } from "@/components/error";
+import { SidebarHeaderComponent } from "@/components/sidebar-header";
+import { EditProfileDialog } from "@/components/edit-profile-dialog";
+import { uploadFile } from "@/lib/storage";
 
-export default function AccountClient({ accountUser }: { accountUser: any }) {
+interface Post {
+    id: string;
+    [key: string]: any;
+}
+
+interface AccountUser {
+    uid: string;
+    username: string;
+    avatarUrl?: string;
+    description?: string;
+    followersCount: number;
+    followingCount: number;
+    initialPosts?: Post[];
+    hasMore?: boolean;
+}
+
+interface SidebarUser {
+    name: string;
+    email: string;
+    avatarUrl: string;
+    uid: string;
+}
+
+interface AccountClientProps {
+    accountUser: AccountUser;
+}
+
+interface PostsResponse {
+    posts: Post[];
+    hasMore: boolean;
+}
+
+export default function AccountClient({ accountUser }: AccountClientProps) {
     const user = useUser();
-    const [posts, setPosts] = useState(accountUser.initialPosts || []);
-    const [hasMore, setHasMore] = useState(accountUser.hasMore || false);
-    const [loading, setLoading] = useState(false);
+    const [posts, setPosts] = useState<Post[]>(accountUser.initialPosts || []);
+    const [hasMore, setHasMore] = useState<boolean>(accountUser.hasMore || false);
+    const [loading, setLoading] = useState<boolean>(false);
+
+    const [username, setUsername] = useState<string>(accountUser.username);
+    const [description, setDescription] = useState<string>(accountUser.description || "");
+    const [avatarUrl, setAvatarUrl] = useState<string>(accountUser.avatarUrl || "/default-avatar.png");
+
+    const [following, setFollowing] = useState<boolean>(false);
+    const [followersCount, setFollowersCount] = useState<number>(accountUser.followersCount || 0);
+    const [error, setError] = useState<string | null>(null);
+
+    const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
+
     const observerTarget = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
+        setFollowing(user.following?.includes(accountUser.uid) || false);
+    }, [user.following, accountUser.uid]);
+
+    useEffect(() => {
+        const observer: IntersectionObserver = new IntersectionObserver(
+            (entries: IntersectionObserverEntry[]) => {
                 if (entries[0].isIntersecting && hasMore && !loading) {
                     loadMorePosts();
                 }
@@ -33,53 +89,92 @@ export default function AccountClient({ accountUser }: { accountUser: any }) {
         return () => observer.disconnect();
     }, [hasMore, loading, posts]);
 
-    const loadMorePosts = async () => {
+    const loadMorePosts = async (): Promise<void> => {
         if (loading || !hasMore) return;
 
         setLoading(true);
         try {
-            const lastPostId = posts[posts.length - 1]?.id;
-            const response = await fetch(
+            const lastPostId: string | undefined = posts[posts.length - 1]?.id;
+            const response: Response = await fetch(
                 `/api/posts/user-posts?uid=${accountUser.uid}&lastPostId=${lastPostId}&limit=10`
             );
-            const data = await response.json();
+            const data: PostsResponse = await response.json();
 
-            setPosts((prev: any[]) => [...prev, ...data.posts]);
+            setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);
         } catch (error) {
             console.error("Failed to load more posts:", error);
+            setError("Failed to load more posts");
         } finally {
             setLoading(false);
         }
     };
 
-    const sidebarUser = {
+    const handleFollowToggle = async (): Promise<void> => {
+        // Optimistic update - immediately update UI
+        const wasFollowing = following;
+        const previousCount = followersCount;
+        const newFollowingState = !wasFollowing;
+        const newCount = newFollowingState ? previousCount + 1 : previousCount - 1;
+        
+        setFollowing(newFollowingState);
+        setFollowersCount(newCount);
+        
+        try {
+            await toggleFollow(accountUser.uid);
+        } catch (error) {
+            console.error("Follow toggle error:", error);
+            setError(error instanceof Error ? error.message : "An error occurred");
+            // Revert on error
+            setFollowing(wasFollowing);
+            setFollowersCount(previousCount);
+        }
+    }
+
+    const handleSaveProfile = async (data: {
+        username: string;
+        description: string;
+        avatarFile?: File;
+        avatarChanged: boolean;
+    }): Promise<void> => {
+        try {
+            const newAvatarUrl = await editProfile(
+                data.username,
+                data.description,
+                accountUser.avatarUrl || "/default-avatar.png",
+                accountUser.username,
+                data.avatarFile
+            );
+
+            if (newAvatarUrl !== accountUser.avatarUrl) {
+                accountUser.avatarUrl = newAvatarUrl;
+            }
+            accountUser.username = data.username;
+            accountUser.description = data.description;
+
+            setUsername(data.username);
+            setDescription(data.description);
+            setAvatarUrl(newAvatarUrl);
+        } catch (error) {
+            throw error; // Re-throw to let the dialog handle the error
+        }
+    };
+
+    const sidebarUser: SidebarUser = {
         name: user.username || "",
         email: user.email || "",
         avatarUrl: user.avatarUrl || "/default-avatar.png",
         uid: user.uid || "",
     };
 
-    accountUser.followersCount = accountUser.followers.length;
-    accountUser.followingCount = accountUser.following.length;
-
-    const ownerViewing = accountUser.uid === user.uid;
+    const ownerViewing: boolean = accountUser.uid === user.uid;
 
     return (
         <SidebarProvider>
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2">
-                    <div className="flex items-center gap-2 px-4">
-                        <SidebarTrigger className="-ml-1" />
-                        <Separator
-                            orientation="vertical"
-                            className="mr-2 data-[orientation=vertical]:h-4"
-                        />
-                        <span className="text-xl font-semibold">{accountUser.username == user.username ? "Your Account" : accountUser.username}</span>
-                    </div>
-
-                </header>
+                <SidebarHeaderComponent title={username === user.username ? "Your Account" : username} />
+                {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
                         <div className="space-y-6">
@@ -88,19 +183,25 @@ export default function AccountClient({ accountUser }: { accountUser: any }) {
                                 {/* Avatar and Action Button Row */}
                                 <div className="flex items-start justify-between gap-4">
                                     <img
-                                        src={accountUser.avatarUrl || "/default-avatar.png"}
+                                        src={avatarUrl || "/default-avatar.png"}
                                         alt="User Avatar"
                                         className="size-16 md:size-20 rounded-full object-cover shrink-0"
                                     />
                                     {ownerViewing && (
-                                        <Button variant="outline">
+                                        <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
                                             <span>Edit Profile</span>
                                         </Button>
                                     )}
-                                    {!ownerViewing && (
-                                        <Button variant="secondary">
+                                    {!ownerViewing && !following && (
+                                        <Button variant="secondary" onClick={handleFollowToggle}>
                                             <CirclePlus className="h-4 w-4" />
                                             <span>Follow</span>
+                                        </Button>
+                                    )}
+                                    {!ownerViewing && following && (
+                                        <Button variant="secondary" onClick={handleFollowToggle}>
+                                            <Check className="h-4 w-4" />
+                                            <span>Following</span>
                                         </Button>
                                     )}
                                 </div>
@@ -108,14 +209,14 @@ export default function AccountClient({ accountUser }: { accountUser: any }) {
                                 {/* Username */}
                                 <div>
                                     <h1 className="text-xl md:text-2xl font-semibold">
-                                        @{accountUser.username}
+                                        @{username}
                                     </h1>
                                 </div>
 
                                 {/* Description */}
-                                {accountUser.description && (
+                                {description && (
                                     <p className="text-base md:text-lg text-foreground">
-                                        {accountUser.description}
+                                        {description}
                                     </p>
                                 )}
 
@@ -128,8 +229,8 @@ export default function AccountClient({ accountUser }: { accountUser: any }) {
                                         </span>
                                     </div>
                                     <div>
-                                        <span className="font-semibold">{accountUser.followersCount}</span>{" "}
-                                        <span className="text-muted-foreground">follower{accountUser.followersCount !== 1 ? "s" : ""}</span>
+                                        <span className="font-semibold">{followersCount}</span>{" "}
+                                        <span className="text-muted-foreground">follower{followersCount !== 1 ? "s" : ""}</span>
                                     </div>
                                     <div>
                                         <span className="font-semibold">{accountUser.followingCount}</span>{" "}
@@ -138,21 +239,29 @@ export default function AccountClient({ accountUser }: { accountUser: any }) {
                                 </div>
                             </div>
 
-                            <PostsGrid 
-                                posts={posts} 
+                            <PostsGrid
+                                posts={posts}
                                 currentUserId={user.uid}
                             />
 
                             {/* Infinite scroll trigger */}
                             {hasMore && (
                                 <div ref={observerTarget} className="flex justify-center py-4">
-                                    {loading && <span className="text-muted-foreground">Loading more posts...</span>}
+                                    {loading && <div className="flex items-center gap-2"><Spinner /> <span className="text-muted-foreground">Loading more posts...</span></div>}
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             </SidebarInset>
+            <EditProfileDialog
+                open={editDialogOpen}
+                onOpenChange={setEditDialogOpen}
+                currentUsername={username}
+                currentDescription={description}
+                currentAvatarUrl={avatarUrl}
+                onSave={handleSaveProfile}
+            />
         </SidebarProvider>
     );
 }

@@ -8,9 +8,12 @@ import {
     Trash2,
     ChevronLeft,
     ChevronRight,
-    X
+    X,
+    Bookmark
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toggleLikePost, toggleSavePost } from "@/services/social";
+import { useUser } from "@/lib/user-context";
 
 interface PostsGridProps {
     posts: any[];
@@ -18,8 +21,81 @@ interface PostsGridProps {
 }
 
 export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
+    const user = useUser();
     const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean } }>({});
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
+    const [likedPosts, setLikedPosts] = useState<{ [key: string]: boolean }>({});
+    const [likeCounts, setLikeCounts] = useState<{ [key: string]: number }>({});
+    const [savedPosts, setSavedPosts] = useState<{ [key: string]: boolean }>({});
+    const [saveCounts, setSaveCounts] = useState<{ [key: string]: number }>({});
+
+    // Initialize liked and saved status and counts from posts and user's liked/saved arrays
+    useEffect(() => {
+        const initialLiked: { [key: string]: boolean } = {};
+        const initialLikeCounts: { [key: string]: number } = {};
+        const initialSaved: { [key: string]: boolean } = {};
+        const initialSaveCounts: { [key: string]: number } = {};
+
+        posts.forEach(post => {
+            initialLiked[post.id] = user?.liked?.includes(post.id) || false;
+            initialLikeCounts[post.id] = post.likeCount || 0;
+            initialSaved[post.id] = user?.saved?.includes(post.id) || false;
+            initialSaveCounts[post.id] = post.saveCount || 0;
+        });
+
+        setLikedPosts(initialLiked);
+        setLikeCounts(initialLikeCounts);
+        setSavedPosts(initialSaved);
+        setSaveCounts(initialSaveCounts);
+    }, [posts, user?.liked, user?.saved]);
+
+    const handleLikeToggle = async (postId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        if (!currentUserId) return;
+
+        // Optimistic update - immediately update UI
+        const wasLiked = likedPosts[postId] || false;
+        const newLikedState = !wasLiked;
+        const previousCount = likeCounts[postId] || 0;
+        const newCount = newLikedState ? previousCount + 1 : previousCount - 1;
+
+        setLikedPosts(prev => ({ ...prev, [postId]: newLikedState }));
+        setLikeCounts(prev => ({ ...prev, [postId]: newCount }));
+
+        try {
+            await toggleLikePost(postId);
+        } catch (error) {
+            console.error("Failed to toggle like:", error);
+            // Revert on error
+            setLikedPosts(prev => ({ ...prev, [postId]: wasLiked }));
+            setLikeCounts(prev => ({ ...prev, [postId]: previousCount }));
+        }
+    };
+
+    const handleSaveToggle = async (postId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        if (!currentUserId) return;
+
+        const wasSaved = savedPosts[postId] || false;
+        const newSavedState = !wasSaved;
+        const previousCount = saveCounts[postId] || 0;
+        const newCount = newSavedState ? previousCount + 1 : previousCount - 1;
+
+        setSavedPosts(prev => ({ ...prev, [postId]: newSavedState }));
+        setSaveCounts(prev => ({ ...prev, [postId]: newCount }));
+
+        try {
+            // Assume toggleSavePost is implemented similarly to toggleLikePost
+            await toggleSavePost(postId);
+        } catch (error) {
+            console.error("Failed to toggle save:", error);
+            // Revert on error
+            setSavedPosts(prev => ({ ...prev, [postId]: wasSaved }));
+            setSaveCounts(prev => ({ ...prev, [postId]: previousCount }));
+        }
+    }
 
     const toggleSection = (postId: string, section: 'ingredients' | 'details') => {
         setExpandedPosts(prev => ({
@@ -41,11 +117,11 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
 
     const navigateImage = (direction: 'left' | 'right') => {
         if (!viewingImage) return;
-        
+
         const post = posts.find((p: any) => p.id === viewingImage.postId);
         if (!post || !post.imageUrls) return;
 
-        const newIndex = direction === 'left' 
+        const newIndex = direction === 'left'
             ? (viewingImage.imageIndex - 1 + post.imageUrls.length) % post.imageUrls.length
             : (viewingImage.imageIndex + 1) % post.imageUrls.length;
 
@@ -55,7 +131,7 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!viewingImage) return;
-            
+
             if (e.key === 'Escape') {
                 closeImageViewer();
             } else if (e.key === 'ArrowLeft') {
@@ -75,7 +151,7 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
             <div className="space-y-6">
                 {posts.map((post: any) => {
                     const isOwner = currentUserId && post.authorId === currentUserId;
-                    
+
                     return (
                         <div key={post.id} className="border border-border rounded-lg overflow-hidden">
                             {/* Images Carousel/Grid */}
@@ -99,9 +175,33 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
                                 <div className="flex items-start justify-between gap-2">
                                     <h3 className="text-xl font-semibold">{post.title}</h3>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex items-center gap-1 text-muted-foreground">
-                                            <Heart className="h-5 w-5 hover:text-destructive" />
-                                            <span className="text-sm">{post.likes?.length || 0}</span>
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <button
+                                                className={`hover:text-destructive cursor-default flex items-center gap-1 transition-colors ${likedPosts[post.id] ? 'text-destructive' : ''
+                                                    }`}
+                                                onClick={(e) => handleLikeToggle(post.id, e)}
+                                                disabled={!currentUserId}
+                                                aria-label={likedPosts[post.id] ? "Unlike post" : "Like post"}
+                                            >
+                                                <Heart
+                                                    className="h-5 w-5"
+                                                    fill={likedPosts[post.id] ? "currentColor" : "none"}
+                                                />
+                                                <span className="text-sm">{likeCounts[post.id] || 0}</span>
+                                            </button>
+                                            <button
+                                                className={`hover:text-green-500 cursor-default flex items-center gap-1 transition-colors ${savedPosts[post.id] ? 'text-green-500' : ''
+                                                    }`}
+                                                onClick={(e) => handleSaveToggle(post.id, e)}
+                                                disabled={!currentUserId}
+                                                aria-label={savedPosts[post.id] ? "Unsave post" : "Save post"}
+                                            >
+                                                <Bookmark
+                                                    className="h-5 w-5"
+                                                    fill={savedPosts[post.id] ? "currentColor" : "none"}
+                                                />
+                                                <span className="text-sm">{saveCounts[post.id] || 0}</span>
+                                            </button>
                                         </div>
                                         {isOwner && (
                                             <Button
@@ -183,12 +283,12 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
             {viewingImage && (() => {
                 const post = posts.find((p: any) => p.id === viewingImage.postId);
                 if (!post || !post.imageUrls) return null;
-                
+
                 const currentImage = post.imageUrls[viewingImage.imageIndex];
                 const hasMultipleImages = post.imageUrls.length > 1;
 
                 return (
-                    <div 
+                    <div
                         className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center"
                         onClick={closeImageViewer}
                     >

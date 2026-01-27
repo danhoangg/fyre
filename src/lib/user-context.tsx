@@ -8,9 +8,12 @@ export type User = {
   email?: string | null
   avatarUrl?: string
   createdAt?: string // ISO string from Firestore Timestamp
-  followers?: string[]
-  following?: string[]
-  liked?: string[]
+  following?: string[] // Array of uids the user is following
+  followers?: string[] // Array of uids who follow the user
+  followersCount?: number
+  followingCount?: number
+  liked?: string[] // Array of post ids the user has liked
+  saved?: string[] // Array of post ids the user has saved
   description?: string
 
   // allow any additional Firestore fields to be present

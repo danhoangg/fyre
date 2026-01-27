@@ -21,6 +21,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context"
 import { useRouter } from "next/navigation"
+import { SidebarHeaderComponent } from "@/components/sidebar-header"
 
 export default function CreatePostPage() {
     const router = useRouter()
@@ -177,17 +178,7 @@ export default function CreatePostPage() {
         <SidebarProvider>
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2">
-                    <div className="flex items-center gap-2 px-4">
-                        <SidebarTrigger className="-ml-1" />
-                        <Separator
-                            orientation="vertical"
-                            className="mr-2 data-[orientation=vertical]:h-4"
-                        />
-                        <span className="text-xl font-semibold">Create a Post</span>
-                    </div>
-
-                </header>
+                <SidebarHeaderComponent title="Create Post" />
                 <main className="p-8">
                     <div className="mx-auto max-w-3xl">
                         <form

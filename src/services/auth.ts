@@ -28,8 +28,6 @@ export const signUp = async (username: string, email: string, password: string) 
         email,
         createdAt: serverTimestamp(),
         avatarURL: null,
-        followers: [],
-        following: [],
         description: ""
     });
 
@@ -93,8 +91,6 @@ export const signInWithGoogle = async () => {
             email: cred.user.email,
             createdAt: serverTimestamp(),
             avatarURL: cred.user.photoURL || null,
-            followers: [],
-            following: [],
             description: ""
         });
     }

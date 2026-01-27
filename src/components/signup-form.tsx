@@ -16,6 +16,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signUp, signInWithGoogle } from "@/services/auth"
 import { Spinner } from "@/components/ui/spinner"
+import { ErrorComponent } from "./error"
 
 export function SignupForm({
   className,
@@ -88,11 +89,7 @@ export function SignupForm({
           <form className="p-6 md:p-8" onSubmit={handleSignup}>
             <FieldGroup>
               {error && (
-                <Alert className="mb-4 border-red-500 bg-red-50">
-                  <AlertDescription className="text-red-700">
-                    {error}
-                  </AlertDescription>
-                </Alert>
+                <ErrorComponent message={error} />
               )}
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Create your account</h1>

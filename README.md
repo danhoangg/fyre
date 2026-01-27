@@ -99,17 +99,8 @@ src/
 - Personalized feeds
 
 ### Storage
+- Data stored in collections via Firestotre
 - Secure image upload and storage via Firebase Storage
-- Automatic image optimization
-- Delete functionality for managing your content
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## 📝 License
-
-This project is private and proprietary.
 
 ## 🔗 Links
 

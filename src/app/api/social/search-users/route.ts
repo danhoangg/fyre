@@ -56,16 +56,13 @@ export async function POST(req: Request) {
         // Exclude current user from results
         userData = userData.filter(user => user.uid !== currentUser.uid);
 
-        // Add follow status for each user
-        const userDataWithFollowStatus = await Promise.all(
-            userData.map(async (user) => {
-                const isFollowing = await isFollowingCached(currentUser.uid, user.uid);
-                return {
-                    ...user,
-                    isFollowing
-                };
-            })
-        );
+        // Add follow status for each user by checking their followers array
+        const userDataWithFollowStatus = userData.map((user) => {
+            return {
+                ...user,
+                isFollowing: user.followers?.includes(currentUser.uid) || false
+            };
+        });
 
         return new Response(JSON.stringify({ users: userDataWithFollowStatus }), { status: 200 });
     } catch (error) {

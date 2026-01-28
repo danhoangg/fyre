@@ -40,7 +40,8 @@ export async function GET(req: Request) {
         
         let isFollowing = false;
         if (currentUser) {
-            isFollowing = await isFollowingCached(currentUser.uid, userDoc.id);
+            // Check if current user is in target user's followers array
+            isFollowing = data.followers?.includes(currentUser.uid) || false;
         }
 
         return new Response(JSON.stringify({
@@ -70,7 +71,8 @@ export async function POST(req: Request) {
             
             let isFollowing = false;
             if (currentUser) {
-                isFollowing = await isFollowingCached(currentUser.uid, doc.id);
+                // Check if current user is in target user's followers array
+                isFollowing = data.followers?.includes(currentUser.uid) || false;
             }
             
             return {

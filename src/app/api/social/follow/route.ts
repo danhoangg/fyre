@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/session";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { invalidateFollowCache } from "@/lib/cache";
 
 export async function POST(req: Request) {
     let isNowFollowing = false;
@@ -54,10 +55,12 @@ export async function POST(req: Request) {
                 isNowFollowing = false;
 
                 transaction.update(userRef, {
-                    followingCount: FieldValue.increment(-1)
+                    followingCount: FieldValue.increment(-1),
+                    following: FieldValue.arrayRemove(followUid)
                 });
                 transaction.update(targetUserRef, {
-                    followersCount: FieldValue.increment(-1)
+                    followersCount: FieldValue.increment(-1),
+                    followers: FieldValue.arrayRemove(user.uid)
                 });
 
                 // Remove from friends if they were friends
@@ -88,10 +91,12 @@ export async function POST(req: Request) {
                 isNowFollowing = true;
 
                 transaction.update(userRef, {
-                    followingCount: FieldValue.increment(1)
+                    followingCount: FieldValue.increment(1),
+                    following: FieldValue.arrayUnion(followUid)
                 });
                 transaction.update(targetUserRef, {
-                    followersCount: FieldValue.increment(1)
+                    followersCount: FieldValue.increment(1),
+                    followers: FieldValue.arrayUnion(user.uid)
                 });
 
                 // If they follow each other, create friend documents
@@ -106,6 +111,9 @@ export async function POST(req: Request) {
                 }
             }
         });
+
+        // Invalidate cache after successful update
+        invalidateFollowCache(user.uid, followUid);
 
         return new Response(JSON.stringify({ success: true, isFollowing: isNowFollowing }), { status: 200 });
     } catch (error) {

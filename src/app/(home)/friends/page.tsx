@@ -168,7 +168,7 @@ export default function Page() {
                                                 <ItemDescription>{user.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {user.isFollowing ? (
+                                                {following[user.uid] ? (
                                                     <Button variant="secondary" onClick={(e) => handleFollowToggle(e, user.uid)}>
                                                         <Check className="h-4 w-4" />
                                                         <span>Following</span>
@@ -213,7 +213,7 @@ export default function Page() {
                                                 <ItemDescription>{friend.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {friend.isFollowing ? (
+                                                {following[friend.uid] ? (
                                                     <Button variant="secondary" onClick={(e) => handleFollowToggle(e, friend.uid)}>
                                                         <Check className="h-4 w-4" />
                                                         <span>Following</span>

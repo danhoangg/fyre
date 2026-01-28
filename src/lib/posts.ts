@@ -27,19 +27,16 @@ export async function getPostsByUserIds(
 
   const querySnapshot = await query.get();
 
-  // Extract unique author IDs for batch follow check
-  const authorIds = new Set<string>();
-  querySnapshot.docs.forEach(doc => {
-    const postData = doc.data();
-    if (postData.authorId) {
-      authorIds.add(postData.authorId);
-    }
-  });
-
-  // Batch fetch follow statuses
-  let followStatuses: { [key: string]: boolean } = {};
-  if (requestingUserId && authorIds.size > 0) {
-    followStatuses = await getFollowStatusesCached(requestingUserId, Array.from(authorIds));
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore to avoid stale cache
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
   }
 
   const posts = await Promise.all(
@@ -49,15 +46,17 @@ export async function getPostsByUserIds(
         ...doc.data()
       };
 
-      // Get post author info from cache
-      const authorData = await getUserDataCached(postData.authorId as string);
+      // Get post author info
+      const authorData = authorsMap[postData.authorId];
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
       // Fetch only first 10 comments to reduce read operations
@@ -146,19 +145,16 @@ export async function getPostsByPostIds(
 
   const querySnapshot = await query.get();
 
-  // Extract unique author IDs for batch follow check
-  const authorIds = new Set<string>();
-  querySnapshot.docs.forEach(doc => {
-    const postData = doc.data();
-    if (postData.authorId) {
-      authorIds.add(postData.authorId);
-    }
-  });
-
-  // Batch fetch follow statuses
-  let followStatuses: { [key: string]: boolean } = {};
-  if (requestingUserId && authorIds.size > 0) {
-    followStatuses = await getFollowStatusesCached(requestingUserId, Array.from(authorIds));
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
   }
 
   const posts = await Promise.all(
@@ -168,15 +164,17 @@ export async function getPostsByPostIds(
         ...doc.data()
       };
 
-      // Get post author info from cache
-      const authorData = await getUserDataCached(postData.authorId as string);
+      // Get post author info
+      const authorData = authorsMap[postData.authorId];
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
       // Fetch only first 10 comments to reduce read operations
@@ -258,19 +256,16 @@ export async function getExplorePostsByScore(
 
   const querySnapshot = await query.get();
 
-  // Extract unique author IDs for batch follow check
-  const authorIds = new Set<string>();
-  querySnapshot.docs.forEach(doc => {
-    const postData = doc.data();
-    if (postData.authorId) {
-      authorIds.add(postData.authorId);
-    }
-  });
-
-  // Batch fetch follow statuses
-  let followStatuses: { [key: string]: boolean } = {};
-  if (requestingUserId && authorIds.size > 0) {
-    followStatuses = await getFollowStatusesCached(requestingUserId, Array.from(authorIds));
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
   }
 
   const posts = await Promise.all(
@@ -280,15 +275,17 @@ export async function getExplorePostsByScore(
         ...doc.data()
       };
 
-      // Get post author info from cache
-      const authorData = await getUserDataCached(postData.authorId as string);
+      // Get post author info
+      const authorData = authorsMap[postData.authorId];
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
       // Fetch only first 10 comments to reduce read operations

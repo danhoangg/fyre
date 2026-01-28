@@ -155,6 +155,10 @@ export function invalidateFollowCache(fromUid: string, toUid: string): void {
   cache.delete(getCacheKey("follow_status", `${toUid}_${fromUid}`)); // Invalidate reverse too
   clearCache("followers_count:" + toUid);
   clearCache("following_count:" + fromUid);
+  
+  // Also invalidate user data cache since counts and arrays changed
+  cache.delete(getCacheKey("user", fromUid));
+  cache.delete(getCacheKey("user", toUid));
 }
 
 // Invalidate cache when user data changes

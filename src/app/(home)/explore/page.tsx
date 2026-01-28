@@ -51,7 +51,7 @@ export default function ExplorePage() {
             setLoading(true);
             try {
                 // Load initial posts
-                const postsData = await loadExplorePosts(undefined, 10);
+                const postsData = await loadExplorePosts(undefined, 5);
                 setPosts(postsData.posts);
                 setHasMore(postsData.hasMore);
             } catch (error) {
@@ -88,7 +88,7 @@ export default function ExplorePage() {
         setLoadingMore(true);
         try {
             const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-            const data = await loadExplorePosts(lastPostId, 10);
+            const data = await loadExplorePosts(lastPostId, 5);
 
             setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);

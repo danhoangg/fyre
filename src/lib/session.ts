@@ -16,20 +16,20 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
     const data = userDoc.data() || {}
 
     // Get list of users that current user is following and followers
-    const [followingSnapshot, followersSnapshot] = await Promise.all([
-      adminDb.collection("follows").where("fromUid", "==", uid).get(),
-      adminDb.collection("follows").where("toUid", "==", uid).get()
+    const [followingCountSnapshot, followersCountSnapshot] = await Promise.all([
+      adminDb.collection("follows").where("fromUid", "==", uid).count().get(),
+      adminDb.collection("follows").where("toUid", "==", uid).count().get()
     ])
 
-    const following = followingSnapshot.docs.map(doc => doc.data().toUid)
-    const followers = followersSnapshot.docs.map(doc => doc.data().fromUid)
+    const followersCount = followersCountSnapshot.data().count
+    const followingCount = followingCountSnapshot.data().count
+    
+    // Initialize empty arrays for following/followers - can be populated later if needed
+    const following: string[] = []
+    const followers: string[] = []
     
     const friendsDoc = await adminDb.collection("friends").doc(uid).get()
     const friends = friendsDoc.exists ? friendsDoc.data()?.friends || [] : []
-
-    // Get followers and following counts
-    const followersCount = followersSnapshot.size
-    const followingCount = followingSnapshot.size
 
     function serializeFirestoreValue(value: any): any {
       if (value && typeof value.toDate === "function") return value.toDate().toISOString()

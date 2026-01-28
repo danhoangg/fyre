@@ -16,7 +16,7 @@ import {
     Check,
     MoreHorizontal
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toggleLikePost, toggleSavePost, toggleLikeComment, toggleFollow } from "@/services/social";
 import { deleteComment, deletePost, writeComment } from "@/services/posts";
@@ -65,6 +65,11 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
     const [optimisticComments, setOptimisticComments] = useState<{ [key: string]: any[] }>({});
     const [deletingComments, setDeletingComments] = useState<{ [key: string]: boolean }>({});
     const [followedAuthors, setFollowedAuthors] = useState<{ [key: string]: boolean }>({});
+    
+    // Comment pagination state
+    const [allPostComments, setAllPostComments] = useState<{ [key: string]: any[] }>({});
+    const [commentPagination, setCommentPagination] = useState<{ [key: string]: { hasMore: boolean; lastCommentId: string | null; loading: boolean } }>({});
+    const commentScrollRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
     // Initialize liked and saved status and counts from posts' isLiked/isSaved properties
     useEffect(() => {
@@ -73,6 +78,8 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
         const initialSaved: { [key: string]: boolean } = {};
         const initialSaveCounts: { [key: string]: number } = {};
         const initialFollowedAuthors: { [key: string]: boolean } = {};
+        const initialComments: { [key: string]: any[] } = {};
+        const initialPagination: { [key: string]: { hasMore: boolean; lastCommentId: string | null; loading: boolean } } = {};
 
         posts.forEach(post => {
             initialLiked[post.id] = post.isLiked || false;
@@ -88,6 +95,14 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                 ...prev,
                 [post.id]: { ingredients: false, details: false, comments: true }
             }));
+
+            // Initialize comments and pagination
+            initialComments[post.id] = post.comments || [];
+            initialPagination[post.id] = {
+                hasMore: post.hasMoreComments || false,
+                lastCommentId: null,
+                loading: false
+            };
 
             // Initialize comment like counts if comments exist
             if (post.comments) {
@@ -113,6 +128,8 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             }
         });
 
+        setAllPostComments(initialComments);
+        setCommentPagination(initialPagination);
         setLikedPosts(initialLiked);
         setLikeCounts(initialLikeCounts);
         setSavedPosts(initialSaved);
@@ -218,6 +235,79 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
 
     const handleCommentChange = (postId: string, text: string) => {
         setCommentTexts(prev => ({ ...prev, [postId]: text }));
+    };
+
+    const loadMoreComments = async (postId: string) => {
+        if (commentPagination[postId]?.loading || !commentPagination[postId]?.hasMore) {
+            return;
+        }
+
+        setCommentPagination(prev => ({
+            ...prev,
+            [postId]: { ...prev[postId], loading: true }
+        }));
+
+        try {
+            // Get the last comment ID from currently loaded comments
+            const currentComments = allPostComments[postId] || [];
+            const lastLoadedCommentId = currentComments.length > 0 ? currentComments[currentComments.length - 1].id : commentPagination[postId]?.lastCommentId || undefined;
+
+            const params = new URLSearchParams({
+                postId,
+                limit: "10",
+                ...(lastLoadedCommentId && { lastCommentId: lastLoadedCommentId })
+            });
+
+            const response = await fetch(`/api/posts/get-comments?${params}`);
+            if (!response.ok) throw new Error("Failed to load more comments");
+
+            const data = await response.json();
+            
+            // Deduplicate comments - only add if they don't already exist
+            const existingCommentIds = new Set((allPostComments[postId] || []).map((c: any) => c.id));
+            const newUniqueComments = data.comments.filter((c: any) => !existingCommentIds.has(c.id));
+            
+            setAllPostComments(prev => ({
+                ...prev,
+                [postId]: [...(prev[postId] || []), ...newUniqueComments]
+            }));
+
+            // Update liked and like count status for new comments from API response
+            const newLikedPosts: { [key: string]: boolean } = {};
+            const newLikeCounts: { [key: string]: number } = {};
+            
+            newUniqueComments.forEach((comment: any) => {
+                newLikedPosts[comment.id] = comment.isLiked || false;
+                newLikeCounts[comment.id] = comment.likeCount || 0;
+            });
+
+            setLikedPosts(prev => ({ ...prev, ...newLikedPosts }));
+            setLikeCounts(prev => ({ ...prev, ...newLikeCounts }));
+
+            setCommentPagination(prev => ({
+                ...prev,
+                [postId]: {
+                    hasMore: data.hasMore,
+                    lastCommentId: data.lastCommentId,
+                    loading: false
+                }
+            }));
+        } catch (error) {
+            console.error("Failed to load more comments:", error);
+            setCommentPagination(prev => ({
+                ...prev,
+                [postId]: { ...prev[postId], loading: false }
+            }));
+        }
+    };
+
+    const handleCommentScroll = (postId: string, e: React.UIEvent<HTMLDivElement>) => {
+        const element = e.currentTarget;
+        const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+
+        if (isNearBottom && commentPagination[postId]?.hasMore && !commentPagination[postId]?.loading) {
+            loadMoreComments(postId);
+        }
     };
 
     const handleCommentDelete = async (postId: string, commentId: string, e: React.MouseEvent) => {
@@ -585,10 +675,16 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                         {(() => {
                                             const allComments = [
                                                 ...(optimisticComments[post.id] || []),
-                                                ...(post.comments || [])
+                                                ...(allPostComments[post.id] || [])
                                             ];
                                             return allComments.length > 0 && (
-                                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-muted-foreground/50">
+                                                <div 
+                                                    ref={(el) => {
+                                                        if (el) commentScrollRefs.current[post.id] = el;
+                                                    }}
+                                                    onScroll={(e) => handleCommentScroll(post.id, e)}
+                                                    className="space-y-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-muted-foreground/50"
+                                                >
                                                     {allComments.map((comment: any, index: number) => (
                                                         <div key={comment.id || index} className={`flex gap-3 ${comment.isOptimistic || deletingComments[comment.id] ? 'opacity-60' : ''}`}>
                                                             <Avatar className="h-8 w-8 flex-shrink-0 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(comment.username))}>
@@ -638,6 +734,20 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                             </div>
                                                         </div>
                                                     ))}
+                                                    
+                                                    {/* Loading indicator for more comments */}
+                                                    {commentPagination[post.id]?.loading && (
+                                                        <div className="flex justify-center py-2">
+                                                            <Spinner className="h-4 w-4" />
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* "Load more" message when at end */}
+                                                    {!commentPagination[post.id]?.hasMore && allComments.length > 4 && (
+                                                        <div className="text-center text-xs text-muted-foreground py-2">
+                                                            No more comments
+                                                        </div>
+                                                    )}
                                                 </div>
                                             );
                                         })()}

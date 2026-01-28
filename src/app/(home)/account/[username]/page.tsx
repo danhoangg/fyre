@@ -77,7 +77,7 @@ export default function AccountPage() {
         setFollowingCount(userData.followingCount || 0);
 
         // Load initial posts
-        const postsData = await loadUserPosts(userData.uid, undefined, 10);
+        const postsData = await loadUserPosts(userData.uid, undefined, 5);
         setPosts(postsData.posts);
         setHasMore(postsData.hasMore);
       } catch (error) {
@@ -120,7 +120,7 @@ export default function AccountPage() {
     setLoadingMore(true);
     try {
       const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-      const data = await loadUserPosts(accountUser.uid, lastPostId, 10);
+      const data = await loadUserPosts(accountUser.uid, lastPostId, 5);
 
       setPosts((prev: Post[]) => [...prev, ...data.posts]);
       setHasMore(data.hasMore);

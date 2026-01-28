@@ -51,7 +51,7 @@ export default function SavedPostsPage() {
             setLoading(true);
             try {
                 // Load initial posts
-                const postsData = await loadSavedPosts(user.uid, undefined, 10);
+                const postsData = await loadSavedPosts(user.uid, undefined, 5);
                 setPosts(postsData.posts);
                 setHasMore(postsData.hasMore);
             } catch (error) {
@@ -88,7 +88,7 @@ export default function SavedPostsPage() {
         setLoadingMore(true);
         try {
             const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-            const data = await loadSavedPosts(user.uid, lastPostId, 10);
+            const data = await loadSavedPosts(user.uid, lastPostId, 5);
 
             setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);

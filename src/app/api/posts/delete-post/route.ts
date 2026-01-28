@@ -27,13 +27,13 @@ export async function POST(req: Request) {
 
         await adminDb.runTransaction(async (transaction) => {
             // Delete related likes
-            const likesSnapshot = await adminDb.collection("likes").where("postId", "==", postId).get()
+            const likesSnapshot = await adminDb.collection("postLikes").where("postId", "==", postId).get()
             likesSnapshot.forEach((doc) => {
                 transaction.delete(doc.ref)
             })
 
             // Delete related saves
-            const savesSnapshot = await adminDb.collection("saves").where("postId", "==", postId).get()
+            const savesSnapshot = await adminDb.collection("postSaves").where("postId", "==", postId).get()
             savesSnapshot.forEach((doc) => {
                 transaction.delete(doc.ref)
             })

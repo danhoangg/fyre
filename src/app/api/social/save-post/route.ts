@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
         await adminDb.runTransaction(async (transaction) => {
             const postRef = adminDb.collection("posts").doc(postId);
-            const saveRef = adminDb.collection("saves").doc(saveDocId);
+            const saveRef = adminDb.collection("postSaves").doc(saveDocId);
             const [postDoc, existingSave] = await Promise.all([
                 transaction.get(postRef),
                 transaction.get(saveRef)

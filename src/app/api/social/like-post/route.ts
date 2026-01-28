@@ -21,7 +21,7 @@ export async function POST(req: Request) {
 
         await adminDb.runTransaction(async (transaction) => {
             const postRef = adminDb.collection("posts").doc(postId);
-            const likeRef = adminDb.collection("likes").doc(likeDocId);
+            const likeRef = adminDb.collection("postLikes").doc(likeDocId);
 
             const [postDoc, existingLike] = await Promise.all([
                 transaction.get(postRef),

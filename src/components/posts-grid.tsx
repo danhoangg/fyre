@@ -9,7 +9,8 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    Bookmark
+    Bookmark,
+    MessageCircleIcon
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toggleLikePost, toggleSavePost } from "@/services/social";
@@ -26,6 +27,9 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ErrorComponent } from "@/components/ui/error";
+import { Spinner } from "@/components/ui/spinner";
+import { Separator } from "@radix-ui/react-separator";
+import { Item } from "@/components/ui/item"
 
 interface PostsGridProps {
     posts: any[];
@@ -126,7 +130,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
 
         try {
             await deletePost(deleteConfirmPostId);
-            
+
             // Call the optional callback to update parent component
             if (onPostDeleted) {
                 onPostDeleted(deleteConfirmPostId);
@@ -193,7 +197,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
             {/* Error Message */}
             {error && <ErrorComponent message={error} />}
 
-            {/* Posts Grid */}
             <div className="space-y-6">
                 {posts.map((post: any) => {
                     const isOwner = currentUserId && post.authorId === currentUserId;
@@ -234,6 +237,17 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                                     fill={likedPosts[post.id] ? "currentColor" : "none"}
                                                 />
                                                 <span className="text-sm">{likeCounts[post.id] || 0}</span>
+                                            </button>
+                                            <button
+                                                className={`hover:text-blue-400 cursor-default flex items-center gap-1 transition-colors`}
+                                                onClick={() => console.log("Comment icon clicked")}
+                                                disabled={!currentUserId}
+                                                aria-label={"Comment on post"}
+                                            >
+                                                <MessageCircleIcon
+                                                    className="h-5 w-5"
+                                                />
+                                                <span className="text-sm">{post.commentCount || 0}</span>
                                             </button>
                                             <button
                                                 className={`hover:text-green-500 cursor-default flex items-center gap-1 transition-colors ${savedPosts[post.id] ? 'text-green-500' : ''
@@ -320,6 +334,12 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                         )}
                                     </div>
                                 )}
+
+                                <div className="pt-3 border-t border-border space-y-2">
+                                    <Item>
+
+                                    </Item>
+                                </div>
                             </div>
                         </div>
                     );

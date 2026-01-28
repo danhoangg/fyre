@@ -1,3 +1,5 @@
+import { getPostsByUserIds } from "@/lib/posts";
+
 export const createPost = async (data: {
     title: string;
     description: string;
@@ -36,3 +38,18 @@ export const deletePost = async (postId: string): Promise<void> => {
         throw new Error(data.error || "Failed to delete post");
     }
 }
+
+export const loadUserPosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
+    posts: any[];
+    hasMore: boolean;
+}> => {
+    const response = await fetch(
+        `/api/posts/user-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to load posts");
+    }
+
+    return response.json();
+};

@@ -26,7 +26,8 @@ export async function POST(req: Request) {
             directions,
             nutrition,
             imageUrls,
-            likes: 0,
+            likeCount: 0,
+            saveCount: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         })
 

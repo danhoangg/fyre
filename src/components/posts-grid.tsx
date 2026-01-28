@@ -592,7 +592,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                     {allComments.map((comment: any, index: number) => (
                                                         <div key={comment.id || index} className={`flex gap-3 ${comment.isOptimistic || deletingComments[comment.id] ? 'opacity-60' : ''}`}>
                                                             <Avatar className="h-8 w-8 flex-shrink-0 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(comment.username))}>
-                                                                <AvatarImage src={comment.avatarUrl} alt={comment.username} />
+                                                                <AvatarImage src={comment.avatarUrl || "default-avatar.png"} alt={comment.username || "User"} />
                                                                 <AvatarFallback>
                                                                     {comment.username?.charAt(0).toUpperCase()}
                                                                 </AvatarFallback>

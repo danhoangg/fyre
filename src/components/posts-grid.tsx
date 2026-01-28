@@ -13,14 +13,27 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toggleLikePost, toggleSavePost } from "@/services/social";
+import { deletePost } from "@/services/posts";
 import { useUser } from "@/lib/user-context";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ErrorComponent } from "@/components/ui/error";
 
 interface PostsGridProps {
     posts: any[];
     currentUserId?: string;
+    onPostDeleted?: (postId: string) => void;
 }
 
-export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
+export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProps) {
     const user = useUser();
     const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean } }>({});
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
@@ -28,8 +41,11 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
     const [likeCounts, setLikeCounts] = useState<{ [key: string]: number }>({});
     const [savedPosts, setSavedPosts] = useState<{ [key: string]: boolean }>({});
     const [saveCounts, setSaveCounts] = useState<{ [key: string]: number }>({});
+    const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
+    const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // Initialize liked and saved status and counts from posts and user's liked/saved arrays
+    // Initialize liked and saved status and counts from posts' isLiked/isSaved properties
     useEffect(() => {
         const initialLiked: { [key: string]: boolean } = {};
         const initialLikeCounts: { [key: string]: number } = {};
@@ -37,9 +53,9 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
         const initialSaveCounts: { [key: string]: number } = {};
 
         posts.forEach(post => {
-            initialLiked[post.id] = user?.liked?.includes(post.id) || false;
+            initialLiked[post.id] = post.isLiked || false;
             initialLikeCounts[post.id] = post.likeCount || 0;
-            initialSaved[post.id] = user?.saved?.includes(post.id) || false;
+            initialSaved[post.id] = post.isSaved || false;
             initialSaveCounts[post.id] = post.saveCount || 0;
         });
 
@@ -47,7 +63,7 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
         setLikeCounts(initialLikeCounts);
         setSavedPosts(initialSaved);
         setSaveCounts(initialSaveCounts);
-    }, [posts, user?.liked, user?.saved]);
+    }, [posts]);
 
     const handleLikeToggle = async (postId: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -94,6 +110,33 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
             // Revert on error
             setSavedPosts(prev => ({ ...prev, [postId]: wasSaved }));
             setSaveCounts(prev => ({ ...prev, [postId]: previousCount }));
+        }
+    }
+
+    const handleDeletePost = async (postId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setDeleteConfirmPostId(postId);
+    }
+
+    const confirmDelete = async () => {
+        if (!deleteConfirmPostId) return;
+
+        setDeletingPostId(deleteConfirmPostId);
+        setError(null);
+
+        try {
+            await deletePost(deleteConfirmPostId);
+            
+            // Call the optional callback to update parent component
+            if (onPostDeleted) {
+                onPostDeleted(deleteConfirmPostId);
+            }
+            setDeleteConfirmPostId(null);
+        } catch (error) {
+            console.error("Failed to delete post:", error);
+            setError(error instanceof Error ? error.message : "Failed to delete post");
+        } finally {
+            setDeletingPostId(null);
         }
     }
 
@@ -147,6 +190,9 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
 
     return (
         <>
+            {/* Error Message */}
+            {error && <ErrorComponent message={error} />}
+
             {/* Posts Grid */}
             <div className="space-y-6">
                 {posts.map((post: any) => {
@@ -209,7 +255,8 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
                                                 variant="ghost"
                                                 className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                                                 aria-label="Delete post"
-                                                onClick={() => console.log('Delete post:', post.id)}
+                                                onClick={(e) => handleDeletePost(post.id, e)}
+                                                disabled={deletingPostId === post.id}
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
@@ -344,6 +391,27 @@ export function PostsGrid({ posts, currentUserId }: PostsGridProps) {
                     </div>
                 );
             })()}
+
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={deleteConfirmPostId !== null} onOpenChange={(open) => !open && setDeleteConfirmPostId(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Post</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete this post? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={confirmDelete}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

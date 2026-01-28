@@ -34,7 +34,7 @@ Fyre is a social media platform designed for food enthusiasts to share and disco
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/danhoangg/fyre>
 cd fyre
 ```
 

@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
 import { Spinner } from "@/components/ui/spinner";
 import { toggleFollow, editProfile } from "@/services/social";
-import { ErrorComponent } from "@/components/error";
+import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
 import { uploadFile } from "@/lib/storage";
@@ -65,8 +65,13 @@ export default function AccountClient({ accountUser }: AccountClientProps) {
     const [error, setError] = useState<string | null>(null);
 
     const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
+    const [mounted, setMounted] = useState<boolean>(false);
 
     const observerTarget = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         setFollowing(user.following?.includes(accountUser.uid) || false);
@@ -169,6 +174,10 @@ export default function AccountClient({ accountUser }: AccountClientProps) {
 
     const ownerViewing: boolean = accountUser.uid === user.uid;
 
+    if (!mounted) {
+        return null;
+    }
+
     return (
         <SidebarProvider>
             <AppSidebar user={sidebarUser} />
@@ -242,6 +251,9 @@ export default function AccountClient({ accountUser }: AccountClientProps) {
                             <PostsGrid
                                 posts={posts}
                                 currentUserId={user.uid}
+                                onPostDeleted={(postId) => {
+                                    setPosts(prev => prev.filter(p => p.id !== postId));
+                                }}
                             />
 
                             {/* Infinite scroll trigger */}

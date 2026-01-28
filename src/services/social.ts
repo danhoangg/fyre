@@ -46,6 +46,38 @@ export const toggleFollow = async (followUid: string) => {
     return result.isFollowing;
 }
 
+export const getUsersData = async (userUids: string[]) => {
+    const res = await fetch("/api/social/get-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ users: userUids }),
+    });
+
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to fetch users data");
+    }
+
+    const result = await res.json();
+    return result.users;
+}
+
+export const searchUsers = async (query: string) => {
+    const res = await fetch("/api/social/search-users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+    });
+
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to search users");
+    }
+
+    const result = await res.json();
+    return result.users;
+}
+
 export const editProfile = async (username: string, description: string, currentAvatarUrl: string, currentUsername: string, avatarFile?: File) => {
     let newAvatarUrl = currentAvatarUrl;
     let uploadedAvatarUrl: string | null = null;

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Upload } from "lucide-react";
-import { ErrorComponent } from "./error";
+import { ErrorComponent } from "./ui/error";
 
 interface EditProfileDialogProps {
     open: boolean;

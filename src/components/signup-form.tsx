@@ -16,7 +16,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signUp, signInWithGoogle } from "@/services/auth"
 import { Spinner } from "@/components/ui/spinner"
-import { ErrorComponent } from "./error"
+import { ErrorComponent } from "./ui/error"
 
 export function SignupForm({
   className,

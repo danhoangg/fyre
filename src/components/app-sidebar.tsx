@@ -2,17 +2,13 @@
 
 import * as React from "react"
 import {
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
   LifeBuoy,
-  Map,
-  PieChart,
   Send,
-  Settings2,
   House,
-  SquarePlus
+  SquarePlus,
+  Users,
+  Bookmark,
+  TrendingUp
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -45,55 +41,25 @@ const data = {
       isActive: true,
     },
     {
+      title: "Explore",
+      url: "/explore",
+      icon: TrendingUp,
+      isActive: true,
+    },
+    {
       title: "Create Post",
       url: "/create-post",
       icon: SquarePlus,
     },
     {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
+      title: "Friends",
+      url: "/friends",
+      icon: Users,
     },
     {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
+      title: "Saved Posts",
+      url: "/saved-posts",
+      icon: Bookmark,
     },
   ],
   navSecondary: [
@@ -107,24 +73,7 @@ const data = {
       url: "#",
       icon: Send,
     },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+  ]
 }
 
 export function AppSidebar({ 
@@ -150,7 +99,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

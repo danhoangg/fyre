@@ -18,6 +18,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { useUser } from "@/lib/user-context"
 import { uploadFile, deleteFileByUrl } from "@/lib/storage"
 import { Spinner } from "@/components/ui/spinner"
+import { createPost } from "@/services/posts"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context"
 import { useRouter } from "next/navigation"
@@ -133,22 +134,14 @@ export default function CreatePostPage() {
                 finalImageUrls = []
             }
 
-            const res = await fetch("/api/posts/create-post", {
-                method: "POST",
-                body: new URLSearchParams({
-                    title,
-                    description,
-                    ingredients,
-                    directions,
-                    nutrition,
-                    imageUrls: JSON.stringify(finalImageUrls),
-                }),
-            })
-
-            if (!res.ok) {
-                const text = await res.text()
-                throw new Error(`Create post failed: ${res.status} ${text}`)
-            }
+            await createPost({
+                title,
+                description,
+                ingredients,
+                directions,
+                nutrition,
+                imageUrls: finalImageUrls,
+            });
 
             // reset form
             setTitle("")

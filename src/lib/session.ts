@@ -15,18 +15,17 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
 
     const data = userDoc.data() || {}
 
-    // Get list of users that current user is following and followers, and liked/saved posts
-    const [followingSnapshot, followersSnapshot, likedSnapshot, savedSnapshot] = await Promise.all([
+    // Get list of users that current user is following and followers
+    const [followingSnapshot, followersSnapshot] = await Promise.all([
       adminDb.collection("follows").where("fromUid", "==", uid).get(),
-      adminDb.collection("follows").where("toUid", "==", uid).get(),
-      adminDb.collection("likes").where("uid", "==", uid).get(),
-      adminDb.collection("saves").where("uid", "==", uid).get()
+      adminDb.collection("follows").where("toUid", "==", uid).get()
     ])
-    
+
     const following = followingSnapshot.docs.map(doc => doc.data().toUid)
     const followers = followersSnapshot.docs.map(doc => doc.data().fromUid)
-    const liked = likedSnapshot.docs.map(doc => doc.data().postId)
-    const saved = savedSnapshot.docs.map(doc => doc.data().postId)
+    
+    const friendsDoc = await adminDb.collection("friends").doc(uid).get()
+    const friends = friendsDoc.exists ? friendsDoc.data()?.friends || [] : []
 
     // Get followers and following counts
     const followersCount = followersSnapshot.size
@@ -45,13 +44,13 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
 
     const plainData = serializeFirestoreValue(data)
 
-    return { 
-      uid, 
-      ...plainData, 
+    return {
+      uid,
+      ...plainData,
       following,
       followers,
-      liked,
-      saved,
+      friends,
+
       followersCount: followersCount,
       followingCount: followingCount
     } as Record<string, any>

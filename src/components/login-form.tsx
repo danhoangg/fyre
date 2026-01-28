@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signIn, signInWithGoogle } from "@/services/auth"
-import { ErrorComponent } from "./error"
+import { ErrorComponent } from "./ui/error"
 
 export function LoginForm({
   className,

@@ -44,6 +44,7 @@ export default function AccountPage() {
 
   const [following, setFollowing] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
+  const [followingCount, setFollowingCount] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
@@ -73,6 +74,7 @@ export default function AccountPage() {
         setDescription(userData.description || "");
         setAvatarUrl(userData.avatarUrl || "/default-avatar.png");
         setFollowersCount(userData.followersCount || 0);
+        setFollowingCount(userData.followingCount || 0);
 
         // Load initial posts
         const postsData = await loadUserPosts(userData.uid, undefined, 10);
@@ -289,7 +291,7 @@ export default function AccountPage() {
                     <span className="text-muted-foreground">follower{followersCount !== 1 ? "s" : ""}</span>
                   </div>
                   <div>
-                    <span className="font-semibold">{accountUser.followingCount}</span>{" "}
+                    <span className="font-semibold">{followingCount}</span>{" "}
                     <span className="text-muted-foreground">following</span>
                   </div>
                 </div>

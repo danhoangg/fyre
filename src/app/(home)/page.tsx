@@ -135,7 +135,7 @@ export default function HomePage() {
                     <div className="mx-auto w-full max-w-2xl">
                       <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>
                         {posts.length === 0 ? (
-                            <p className="text-center text-gray-500">You either have no friends or your friends haven't posted anything yet 😢</p>
+                            <p className="text-center text-gray-500">You either have no friends or your friends haven't posted anything yet 😢 (go check the explore page)</p>
                         ) : (
                         <div className="space-y-6">
                             <PostsGrid

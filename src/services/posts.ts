@@ -82,6 +82,21 @@ export const loadHomePosts = async (uid: string, lastPostId?: string, limit: num
     return response.json();
 };
 
+export const loadExplorePosts = async (lastPostId?: string, limit: number = 10): Promise<{
+    posts: any[];
+    hasMore: boolean;
+}> => {
+    const response = await fetch(
+        `/api/posts/get-explore-posts?lastPostId=${lastPostId || ''}&limit=${limit}`
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to load explore posts");
+    }
+
+    return response.json();
+};
+
 export const writeComment = async (data: {
     postId: string;
     content: string;

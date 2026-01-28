@@ -28,6 +28,7 @@ export async function POST(req: Request) {
             imageUrls,
             likeCount: 0,
             saveCount: 0,
+            score: 0,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         })
 

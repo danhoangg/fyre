@@ -33,16 +33,14 @@ export async function POST(req: Request) {
                 throw new Error("Post not found");
             }
 
+            let newLikeCount: number;
             // Check if already liked
             if (existingLike.exists) {
                 // Unlike the post
                 transaction.delete(likeRef);
 
                 // Decrement like count on post
-                const newLikeCount = Math.max((postDoc.data()?.likeCount || 1) - 1, 0);
-                transaction.update(postRef, {
-                    likeCount: newLikeCount
-                });
+                newLikeCount = Math.max((postDoc.data()?.likeCount || 1) - 1, 0);
                 isLiked = false;
             } else {
                 // Like the post
@@ -53,12 +51,21 @@ export async function POST(req: Request) {
                 });
 
                 // Increment like count on post
-                const newLikeCount = (postDoc.data()?.likeCount || 0) + 1;
-                transaction.update(postRef, {
-                    likeCount: newLikeCount
-                }); 
+                newLikeCount = (postDoc.data()?.likeCount || 0) + 1;
                 isLiked = true;
             }
+
+            const createdAt = postDoc.data()?.createdAt;
+            const now = Date.now();
+            const createdDate = new Date(createdAt._seconds * 1000);
+            const diffInMs = now - createdDate.getTime();
+            const diffInHours = Math.floor(diffInMs / 3600000);
+            const score = newLikeCount / Math.pow((diffInHours + 2), 1.5);
+
+            transaction.update(postRef, {
+                likeCount: newLikeCount,
+                score: score
+            });
         });
 
         return new Response(JSON.stringify({ success: true, isLiked: isLiked }), { status: 200 });

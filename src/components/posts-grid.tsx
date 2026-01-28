@@ -38,6 +38,7 @@ import { Item } from "@/components/ui/item"
 import { formatTimeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 interface PostsGridProps {
     posts: any[];
@@ -49,6 +50,7 @@ interface PostsGridProps {
 
 export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdated, showFollowing = true }: PostsGridProps) {
     const user = useUser();
+    const router = useRouter();
     const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean; comments: boolean } }>({});
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
     const [likedPosts, setLikedPosts] = useState<{ [key: string]: boolean }>({});
@@ -367,7 +369,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                             {/* Author Header */}
                             <div className="flex items-start justify-between gap-2 p-2">
                                 <div className="flex items-center justify-between w-full">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(post.authorUsername))} >
                                         <Avatar size="lg" className="flex-shrink-0 aspect-square rounded-full overflow-hidden">
                                             <AvatarImage
                                                 src={post.authorAvatarUrl || "default-avatar.png"}
@@ -589,7 +591,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                 <div className="space-y-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-muted-foreground/50">
                                                     {allComments.map((comment: any, index: number) => (
                                                         <div key={comment.id || index} className={`flex gap-3 ${comment.isOptimistic || deletingComments[comment.id] ? 'opacity-60' : ''}`}>
-                                                            <Avatar className="h-8 w-8 flex-shrink-0">
+                                                            <Avatar className="h-8 w-8 flex-shrink-0 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(comment.username))}>
                                                                 <AvatarImage src={comment.avatarUrl} alt={comment.username} />
                                                                 <AvatarFallback>
                                                                     {comment.username?.charAt(0).toUpperCase()}
@@ -597,7 +599,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                             </Avatar>
                                                             <div className="flex-1 space-y-1">
                                                                 <div className="flex items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
+                                                                    <div className="flex items-center gap-2 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(comment.username))}>
                                                                         <span className="font-semibold text-sm">{comment.username == user.username ? "You" : comment.username}</span>
                                                                         <span className="text-xs text-muted-foreground">
                                                                             {formatTimeAgo(comment.createdAt)}

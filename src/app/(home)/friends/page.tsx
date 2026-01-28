@@ -192,7 +192,7 @@ export default function Page() {
                                     {loading &&
                                         <LoadingComponent text="Loading friends..." />
                                     }
-                                    {!loading && friendsData.length === 0 && <p>You have no friends :(</p>}
+                                    {!loading && friendsData.length === 0 && <p>You have no friends ☹️</p>}
                                     {friendsData.map(friend => (
                                         <Item
                                             variant="outline"

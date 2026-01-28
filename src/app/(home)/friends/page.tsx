@@ -26,9 +26,9 @@ import { getUsersData, searchUsers } from "@/services/social"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Check, CirclePlus, Search } from "lucide-react"
 import { ErrorComponent } from "@/components/ui/error"
-import { Spinner } from "@/components/ui/spinner"
 
 import { toggleFollow } from "@/services/social"
+import { LoadingComponent } from "@/components/ui/loading"
 
 export default function Page() {
     const router = useRouter()
@@ -143,17 +143,14 @@ export default function Page() {
                                 <h2 className="mb-4 text-2xl font-semibold">Search Results</h2>
                                 <div className="space-y-4">
                                     {isSearching && (
-                                        <div className="flex items-center">
-                                            <Spinner />
-                                            <span className="ml-2">Searching...</span>
-                                        </div>
+                                        <LoadingComponent text="Searching users..." />
                                     )}
                                     {!isSearching && searchResults.length === 0 && (
                                         <p className="text-muted-foreground">No users found.</p>
                                     )}
                                     {!isSearching && searchResults.map(user => (
-                                        <Item 
-                                            variant="outline" 
+                                        <Item
+                                            variant="outline"
                                             key={user.uid}
                                             className="cursor-pointer transition-colors hover:bg-accent/50"
                                             onClick={() => router.push(`/account/${user.username}`)}
@@ -192,14 +189,13 @@ export default function Page() {
                             <>
                                 <h2 className="mb-6 text-2xl font-semibold">Your Friends</h2>
                                 <div className="space-y-4">
-                                    {loading && <div className="flex items-center">
-                                        <Spinner />
-                                        <span className="ml-2">Loading friends...</span>
-                                    </div>}
+                                    {loading &&
+                                        <LoadingComponent text="Loading friends..." />
+                                    }
                                     {!loading && friendsData.length === 0 && <p>You have no friends :(</p>}
                                     {friendsData.map(friend => (
-                                        <Item 
-                                            variant="outline" 
+                                        <Item
+                                            variant="outline"
                                             key={friend.uid}
                                             className="cursor-pointer transition-colors hover:bg-accent/50"
                                             onClick={() => router.push(`/account/${friend.username}`)}

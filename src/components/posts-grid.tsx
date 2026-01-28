@@ -9,11 +9,17 @@ import {
     ChevronLeft,
     ChevronRight,
     X,
-    Bookmark
+    Bookmark,
+    MessageCircleIcon,
+    Send,
+    CirclePlus,
+    Check,
+    MoreHorizontal
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { toggleLikePost, toggleSavePost } from "@/services/social";
-import { deletePost } from "@/services/posts";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { toggleLikePost, toggleSavePost, toggleLikeComment, toggleFollow } from "@/services/social";
+import { deleteComment, deletePost, writeComment } from "@/services/posts";
 import { useUser } from "@/lib/user-context";
 import {
     AlertDialog,
@@ -26,16 +32,24 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ErrorComponent } from "@/components/ui/error";
+import { Spinner } from "@/components/ui/spinner";
+import { Separator } from "@radix-ui/react-separator";
+import { Item } from "@/components/ui/item"
+import { formatTimeAgo } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 
 interface PostsGridProps {
     posts: any[];
     currentUserId?: string;
     onPostDeleted?: (postId: string) => void;
+    onCommentUpdated?: (postId: string) => void;
+    showFollowing?: boolean;
 }
 
-export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProps) {
+export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdated, showFollowing = true }: PostsGridProps) {
     const user = useUser();
-    const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean } }>({});
+    const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean; comments: boolean } }>({});
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
     const [likedPosts, setLikedPosts] = useState<{ [key: string]: boolean }>({});
     const [likeCounts, setLikeCounts] = useState<{ [key: string]: number }>({});
@@ -44,6 +58,11 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
     const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [commentTexts, setCommentTexts] = useState<{ [key: string]: string }>({});
+    const [submittingComment, setSubmittingComment] = useState<{ [key: string]: boolean }>({});
+    const [optimisticComments, setOptimisticComments] = useState<{ [key: string]: any[] }>({});
+    const [deletingComments, setDeletingComments] = useState<{ [key: string]: boolean }>({});
+    const [followedAuthors, setFollowedAuthors] = useState<{ [key: string]: boolean }>({});
 
     // Initialize liked and saved status and counts from posts' isLiked/isSaved properties
     useEffect(() => {
@@ -51,21 +70,79 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
         const initialLikeCounts: { [key: string]: number } = {};
         const initialSaved: { [key: string]: boolean } = {};
         const initialSaveCounts: { [key: string]: number } = {};
+        const initialFollowedAuthors: { [key: string]: boolean } = {};
 
         posts.forEach(post => {
             initialLiked[post.id] = post.isLiked || false;
             initialLikeCounts[post.id] = post.likeCount || 0;
             initialSaved[post.id] = post.isSaved || false;
             initialSaveCounts[post.id] = post.saveCount || 0;
+
+            if (post.authorId && post.isAuthorFollowed !== undefined) {
+                initialFollowedAuthors[post.authorId] = post.isAuthorFollowed || false;
+            }
+
+            setExpandedPosts(prev => ({
+                ...prev,
+                [post.id]: { ingredients: false, details: false, comments: true }
+            }));
+
+            // Initialize comment like counts if comments exist
+            if (post.comments) {
+                post.comments.forEach((comment: any) => {
+                    initialLiked[comment.id] = comment.isLiked || false;
+                    initialLikeCounts[comment.id] = comment.likeCount || 0;
+                    setDeletingComments(prev => ({ ...prev, [comment.id]: false }));
+                });
+            }
+
+            // Clean up optimistic comments that now exist in real data
+            if (optimisticComments[post.id] && post.comments) {
+                const realCommentTexts = new Set(post.comments.map((c: any) => c.text));
+                const filteredOptimistic = optimisticComments[post.id].filter(
+                    oc => !realCommentTexts.has(oc.text)
+                );
+                if (filteredOptimistic.length !== optimisticComments[post.id].length) {
+                    setOptimisticComments(prev => ({
+                        ...prev,
+                        [post.id]: filteredOptimistic
+                    }));
+                }
+            }
         });
 
         setLikedPosts(initialLiked);
         setLikeCounts(initialLikeCounts);
         setSavedPosts(initialSaved);
         setSaveCounts(initialSaveCounts);
-    }, [posts]);
+        setFollowedAuthors(initialFollowedAuthors);
+    }, [posts, optimisticComments]);
 
-    const handleLikeToggle = async (postId: string, e: React.MouseEvent) => {
+    const handleLikeCommentToggle = async (postId: string, commentId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        if (!currentUserId) return;
+
+        // Optimistic update - immediately update UI
+        const wasLiked = likedPosts[commentId] || false;
+        const newLikedState = !wasLiked;
+        const previousCount = likeCounts[commentId] || 0;
+        const newCount = newLikedState ? previousCount + 1 : previousCount - 1;
+
+        setLikedPosts(prev => ({ ...prev, [commentId]: newLikedState }));
+        setLikeCounts(prev => ({ ...prev, [commentId]: newCount }));
+
+        try {
+            await toggleLikeComment(postId, commentId);
+        } catch (error) {
+            console.error("Failed to toggle like:", error);
+            // Revert on error
+            setLikedPosts(prev => ({ ...prev, [commentId]: wasLiked }));
+            setLikeCounts(prev => ({ ...prev, [commentId]: previousCount }));
+        }
+    };
+
+    const handleLikePostToggle = async (postId: string, e: React.MouseEvent) => {
         e.stopPropagation();
 
         if (!currentUserId) return;
@@ -113,10 +190,96 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
         }
     }
 
+    const handleFollowToggle = async (authorId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+
+        if (!currentUserId || !authorId) return;
+
+        const wasFollowing = followedAuthors[authorId] || false;
+        const newFollowing = !wasFollowing;
+
+        setFollowedAuthors(prev => ({ ...prev, [authorId]: newFollowing }));
+
+        try {
+            await toggleFollow(authorId);
+        } catch (error) {
+            console.error("Failed to toggle follow:", error);
+            setFollowedAuthors(prev => ({ ...prev, [authorId]: wasFollowing }));
+            setError(error instanceof Error ? error.message : "Failed to toggle follow");
+        }
+    };
+
     const handleDeletePost = async (postId: string, e: React.MouseEvent) => {
         e.stopPropagation();
         setDeleteConfirmPostId(postId);
     }
+
+    const handleCommentChange = (postId: string, text: string) => {
+        setCommentTexts(prev => ({ ...prev, [postId]: text }));
+    };
+
+    const handleCommentDelete = async (postId: string, commentId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setError(null);
+        setDeletingComments(prev => ({ ...prev, [commentId]: true }));
+        try {
+            await deleteComment(postId, commentId);
+            if (onCommentUpdated) {
+                onCommentUpdated(postId);
+            }
+        } catch (error) {
+            console.error("Failed to delete comment:", error);
+            setError(error instanceof Error ? error.message : "Failed to delete comment");
+        }
+    }
+
+    const handleSubmitComment = async (postId: string) => {
+        const commentText = commentTexts[postId]?.trim();
+        if (!commentText || !currentUserId) return;
+
+        setSubmittingComment(prev => ({ ...prev, [postId]: true }));
+
+        // Create optimistic comment
+        const optimisticComment = {
+            id: `temp-${Date.now()}`,
+            text: commentText,
+            authorId: currentUserId,
+            username: user.displayName || 'You',
+            avatarUrl: user.avatarUrl || '',
+            createdAt: new Date().toISOString(),
+            likeCount: 0,
+            isLiked: false,
+            isOptimistic: true
+        };
+
+        // Add optimistic comment to UI immediately
+        setOptimisticComments(prev => ({
+            ...prev,
+            [postId]: [optimisticComment, ...(prev[postId] || [])]
+        }));
+
+        // Clear input immediately for better UX
+        setCommentTexts(prev => ({ ...prev, [postId]: '' }));
+
+        try {
+            await writeComment({ postId, content: commentText });
+            // Notify parent to refresh posts (optimistic comment will be cleaned up when real data arrives)
+            if (onCommentUpdated) {
+                onCommentUpdated(postId);
+            }
+        } catch (error) {
+            console.error('Failed to submit comment:', error);
+            setError(error instanceof Error ? error.message : 'Failed to submit comment');
+            // Revert optimistic update and restore input text
+            setOptimisticComments(prev => ({
+                ...prev,
+                [postId]: (prev[postId] || []).filter(c => c.id !== optimisticComment.id)
+            }));
+            setCommentTexts(prev => ({ ...prev, [postId]: commentText }));
+        } finally {
+            setSubmittingComment(prev => ({ ...prev, [postId]: false }));
+        }
+    };
 
     const confirmDelete = async () => {
         if (!deleteConfirmPostId) return;
@@ -126,7 +289,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
 
         try {
             await deletePost(deleteConfirmPostId);
-            
+
             // Call the optional callback to update parent component
             if (onPostDeleted) {
                 onPostDeleted(deleteConfirmPostId);
@@ -140,7 +303,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
         }
     }
 
-    const toggleSection = (postId: string, section: 'ingredients' | 'details') => {
+    const toggleSection = (postId: string, section: 'ingredients' | 'details' | 'comments') => {
         setExpandedPosts(prev => ({
             ...prev,
             [postId]: {
@@ -150,7 +313,9 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
         }));
     };
 
-    const openImageViewer = (postId: string, imageIndex: number) => {
+    const openImageViewer = (postId: string, imageIndex: number, e: React.MouseEvent<HTMLImageElement>) => {
+        e.stopPropagation();
+
         setViewingImage({ postId, imageIndex });
     };
 
@@ -193,23 +358,78 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
             {/* Error Message */}
             {error && <ErrorComponent message={error} />}
 
-            {/* Posts Grid */}
             <div className="space-y-6">
                 {posts.map((post: any) => {
                     const isOwner = currentUserId && post.authorId === currentUserId;
 
                     return (
                         <div key={post.id} className="border border-border rounded-lg overflow-hidden">
+                            {/* Author Header */}
+                            <div className="flex items-start justify-between gap-2 p-2">
+                                <div className="flex items-center justify-between w-full">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar size="lg" className="flex-shrink-0 aspect-square rounded-full overflow-hidden">
+                                            <AvatarImage
+                                                src={post.authorAvatarUrl || "default-avatar.png"}
+                                                alt={post.authorUsername || "Author"}
+                                                className="object-cover rounded-full"
+                                            />
+                                            <AvatarFallback>
+                                                {(post.authorUsername || "A").charAt(0).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex flex-col">
+                                            <span className="font-semibold text-sm">
+                                                {post.authorUsername || "Unknown"}
+                                            </span>
+                                            {post.createdAt && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    {formatTimeAgo(post.createdAt)}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {isOwner && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="icon" variant="ghost">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent>
+                                                <DropdownMenuItem variant="destructive" onClick={(e) => handleDeletePost(post.id, e)}>
+                                                    <Trash2 />
+                                                    Delete
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
+                                {!isOwner && !followedAuthors[post.authorId] && showFollowing && (
+                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(post.authorId, e)}>
+                                        <CirclePlus className="h-4 w-4" />
+                                        <span>Follow</span>
+                                    </Button>
+                                )}
+                                {!isOwner && followedAuthors[post.authorId] && showFollowing && (
+                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(post.authorId, e)}>
+                                        <Check className="h-4 w-4" />
+                                        <span>Following</span>
+                                    </Button>
+                                )}
+                            </div>
+
                             {/* Images Carousel/Grid */}
                             {post.imageUrls && post.imageUrls.length > 0 && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 bg-muted/20">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2">
                                     {post.imageUrls.map((url: string, idx: number) => (
                                         <img
                                             key={idx}
                                             src={url}
                                             alt={`${post.title} - Image ${idx + 1}`}
                                             className="w-full h-48 object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity"
-                                            onClick={() => openImageViewer(post.id, idx)}
+                                            onClick={(e) => openImageViewer(post.id, idx, e)}
                                         />
                                     ))}
                                 </div>
@@ -225,7 +445,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                             <button
                                                 className={`hover:text-destructive cursor-default flex items-center gap-1 transition-colors ${likedPosts[post.id] ? 'text-destructive' : ''
                                                     }`}
-                                                onClick={(e) => handleLikeToggle(post.id, e)}
+                                                onClick={(e) => handleLikePostToggle(post.id, e)}
                                                 disabled={!currentUserId}
                                                 aria-label={likedPosts[post.id] ? "Unlike post" : "Like post"}
                                             >
@@ -234,6 +454,17 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                                     fill={likedPosts[post.id] ? "currentColor" : "none"}
                                                 />
                                                 <span className="text-sm">{likeCounts[post.id] || 0}</span>
+                                            </button>
+                                            <button
+                                                className={`hover:text-blue-400 cursor-default flex items-center gap-1 transition-colors ${expandedPosts[post.id]?.comments ? 'text-blue-400' : ''}`}
+                                                onClick={() => toggleSection(post.id, 'comments')}
+                                                disabled={!currentUserId}
+                                                aria-label={"Comment on post"}
+                                            >
+                                                <MessageCircleIcon
+                                                    className="h-5 w-5"
+                                                />
+                                                <span className="text-sm">{post.commentCount || 0}</span>
                                             </button>
                                             <button
                                                 className={`hover:text-green-500 cursor-default flex items-center gap-1 transition-colors ${savedPosts[post.id] ? 'text-green-500' : ''
@@ -249,18 +480,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                                 <span className="text-sm">{saveCounts[post.id] || 0}</span>
                                             </button>
                                         </div>
-                                        {isOwner && (
-                                            <Button
-                                                size="icon"
-                                                variant="ghost"
-                                                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                                aria-label="Delete post"
-                                                onClick={(e) => handleDeletePost(post.id, e)}
-                                                disabled={deletingPostId === post.id}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        )}
                                     </div>
                                 </div>
 
@@ -318,6 +537,108 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted }: PostsGridProp
                                                 <p className="text-sm whitespace-pre-line">{post.nutrition}</p>
                                             </div>
                                         )}
+                                    </div>
+                                )}
+
+                                {/* Comments Section */}
+                                {expandedPosts[post.id]?.comments && (
+                                    <div className="pt-3 border-t border-border space-y-4">
+                                        <h4 className="font-semibold text-sm">Comments</h4>
+
+                                        {/* Comment Input */}
+                                        {currentUserId && (
+                                            <div className="flex gap-2 items-center">
+                                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                                    <AvatarImage src={user.avatarUrl || 'default-avatar.png'} alt={user.displayName || 'User'} />
+                                                    <AvatarFallback>
+                                                        {user.displayName?.charAt(0).toUpperCase() || 'U'}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex-1 flex gap-2">
+                                                    <Input
+                                                        placeholder="Write a comment..."
+                                                        value={commentTexts[post.id] || ''}
+                                                        onChange={(e) => handleCommentChange(post.id, e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                                e.preventDefault();
+                                                                handleSubmitComment(post.id);
+                                                            }
+                                                        }}
+                                                        disabled={submittingComment[post.id]}
+                                                        className="flex-1"
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        onClick={() => handleSubmitComment(post.id)}
+                                                        disabled={!commentTexts[post.id]?.trim() || submittingComment[post.id]}
+                                                    >
+                                                        <Send className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Existing Comments */}
+                                        {(() => {
+                                            const allComments = [
+                                                ...(optimisticComments[post.id] || []),
+                                                ...(post.comments || [])
+                                            ];
+                                            return allComments.length > 0 && (
+                                                <div className="space-y-3 max-h-96 overflow-y-auto pr-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-border [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-muted-foreground/50">
+                                                    {allComments.map((comment: any, index: number) => (
+                                                        <div key={comment.id || index} className={`flex gap-3 ${comment.isOptimistic || deletingComments[comment.id] ? 'opacity-60' : ''}`}>
+                                                            <Avatar className="h-8 w-8 flex-shrink-0">
+                                                                <AvatarImage src={comment.avatarUrl} alt={comment.username} />
+                                                                <AvatarFallback>
+                                                                    {comment.username?.charAt(0).toUpperCase()}
+                                                                </AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex-1 space-y-1">
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-semibold text-sm">{comment.username == user.username ? "You" : comment.username}</span>
+                                                                        <span className="text-xs text-muted-foreground">
+                                                                            {formatTimeAgo(comment.createdAt)}
+                                                                        </span>
+                                                                    </div>
+                                                                    {user.uid === comment.authorId && (
+                                                                        <DropdownMenu>
+                                                                            <DropdownMenuTrigger asChild>
+                                                                                <Button size="icon" variant="ghost" className="h-6 w-6">
+                                                                                    <MoreHorizontal className="h-3 w-3" />
+                                                                                </Button>
+                                                                            </DropdownMenuTrigger>
+                                                                            <DropdownMenuContent>
+                                                                                <DropdownMenuItem variant="destructive" onClick={(e) => handleCommentDelete(post.id, comment.id, e)}>
+                                                                                    <Trash2 />
+                                                                                    Delete
+                                                                                </DropdownMenuItem>
+                                                                            </DropdownMenuContent>
+                                                                        </DropdownMenu>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-sm">{comment.text}</p>
+                                                                <button
+                                                                    className={`hover:text-destructive cursor-default flex items-center gap-1 transition-colors ${likedPosts[comment.id] ? 'text-destructive' : ''
+                                                                        }`}
+                                                                    onClick={(e) => handleLikeCommentToggle(post.id, comment.id, e)}
+                                                                    disabled={!currentUserId}
+                                                                    aria-label={likedPosts[comment.id] ? "Unlike comment" : "Like comment"}
+                                                                >
+                                                                    <Heart
+                                                                        className="h-4 w-4"
+                                                                        fill={likedPosts[comment.id] ? "currentColor" : "none"}
+                                                                    />
+                                                                    <span className="text-sm">{likeCounts[comment.id] || 0}</span>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </div>

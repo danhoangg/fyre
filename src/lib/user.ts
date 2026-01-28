@@ -36,13 +36,30 @@ export async function getFriends(uid: string): Promise<string[]> {
   return friendsDoc.data()?.friends || [];
 }
 
+export async function getCommentsLikedStatus(commentIds: string[], userId: string): Promise<{ [key: string]: boolean }> {
+  if (!userId || commentIds.length === 0) return {};
+  
+  const likeChecks = await Promise.all(
+    commentIds.map(commentId => 
+      adminDb.collection("commentLikes").doc(`${userId}_${commentId}`).get()
+    )
+  );
+  
+  const likedStatus: { [key: string]: boolean } = {};
+  commentIds.forEach((commentId, index) => {
+    likedStatus[commentId] = likeChecks[index].exists;
+  });
+  
+  return likedStatus;
+}
+
 // Helper function to check which posts are liked by a user
 export async function getPostsLikedStatus(postIds: string[], userId: string): Promise<{ [key: string]: boolean }> {
   if (!userId || postIds.length === 0) return {};
   
   const likeChecks = await Promise.all(
     postIds.map(postId => 
-      adminDb.collection("likes").doc(`${userId}_${postId}`).get()
+      adminDb.collection("postLikes").doc(`${userId}_${postId}`).get()
     )
   );
   
@@ -60,7 +77,7 @@ export async function getPostsSavedStatus(postIds: string[], userId: string): Pr
   
   const saveChecks = await Promise.all(
     postIds.map(postId => 
-      adminDb.collection("saves").doc(`${userId}_${postId}`).get()
+      adminDb.collection("postSaves").doc(`${userId}_${postId}`).get()
     )
   );
   
@@ -96,44 +113,4 @@ export async function getUserByUsername(username: string) {
     followersCount,
     followingCount,
   }));
-}
-
-export async function getUserPosts(uid: string, limit: number = 10, lastPostId?: string, requestingUserId?: string) {
-  const postsRef = adminDb.collection("posts");
-  let query = postsRef.where("authorId", "==", uid);
-
-  query = query.orderBy("createdAt", "desc").limit(limit);
-
-  if (lastPostId) {
-    const lastDoc = await postsRef.doc(lastPostId).get();
-    if (lastDoc.exists) {
-      query = query.startAfter(lastDoc);
-    }
-  }
-
-  const querySnapshot = await query.get();
-
-  const posts = querySnapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as any[];
-
-  // Add liked/saved status if requesting user is provided
-  if (requestingUserId && posts.length > 0) {
-    const postIds = posts.map(p => p.id);
-    const [likedStatus, savedStatus] = await Promise.all([
-      getPostsLikedStatus(postIds, requestingUserId),
-      getPostsSavedStatus(postIds, requestingUserId)
-    ]);
-    
-    posts.forEach(post => {
-      post.isLiked = likedStatus[post.id] || false;
-      post.isSaved = savedStatus[post.id] || false;
-    });
-  }
-
-  const hasMore = querySnapshot.docs.length === limit;
-
-  // Serialize Firestore data to plain objects
-  return JSON.parse(JSON.stringify({ posts, hasMore })) as { posts: any[]; hasMore: boolean };
 }

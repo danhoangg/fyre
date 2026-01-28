@@ -11,7 +11,7 @@ import { toggleFollow, editProfile } from "@/services/social";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
-import { loadUserPosts, getPost, loadSavedPosts, loadHomePosts } from "@/services/posts";
+import { loadUserPosts, getPost, loadSavedPosts, loadHomePosts, loadExplorePosts } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
 
@@ -27,7 +27,7 @@ interface SidebarUser {
     uid: string;
 }
 
-export default function HomePage() {
+export default function ExplorePage() {
     const params = useParams();
     const user = useUser();
 
@@ -51,12 +51,12 @@ export default function HomePage() {
             setLoading(true);
             try {
                 // Load initial posts
-                const postsData = await loadHomePosts(user.uid, undefined, 10);
+                const postsData = await loadExplorePosts(undefined, 10);
                 setPosts(postsData.posts);
                 setHasMore(postsData.hasMore);
             } catch (error) {
-                console.error("Failed to load home data:", error);
-                setError("Failed to load home data");
+                console.error("Failed to load explore data:", error);
+                setError("Failed to load explore page");
             } finally {
                 setLoading(false);
             }
@@ -88,7 +88,7 @@ export default function HomePage() {
         setLoadingMore(true);
         try {
             const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-            const data = await loadHomePosts(user.uid, lastPostId, 10);
+            const data = await loadExplorePosts(lastPostId, 10);
 
             setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);
@@ -116,9 +116,9 @@ export default function HomePage() {
             <SidebarProvider>
                 <AppSidebar user={sidebarUser} />
                 <SidebarInset>
-                    <SidebarHeaderComponent title="Home" />
+                    <SidebarHeaderComponent title="Explore" />
                     <div className="flex flex-1 items-center justify-center">
-                        <LoadingComponent text="Loading home page..." />
+                        <LoadingComponent text="Loading explore page..." />
                     </div>
                 </SidebarInset>
             </SidebarProvider>
@@ -129,11 +129,11 @@ export default function HomePage() {
         <SidebarProvider>
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
-                <SidebarHeaderComponent title="Home" />
+                <SidebarHeaderComponent title="Explore" />
                 {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
-                      <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>
+                        <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>
                         <div className="space-y-6">
                             <PostsGrid
                                 posts={posts}

@@ -8,9 +8,9 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 })
         }
 
-        const { postId } = await req.json()
+        const { postId, commentId } = await req.json()
 
-        if (!postId) {
+        if (!postId || !commentId) {
             return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 })
         }
 
@@ -21,30 +21,31 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Post not found" }), { status: 404 })
         }
 
-        if (postDoc.data()?.authorId !== user.uid) {
+        const commentRef = postRef.collection("comments").doc(commentId)
+        const commentDoc = await commentRef.get()
+
+        if (!commentDoc.exists) {
+            return new Response(JSON.stringify({ error: "Comment not found" }), { status: 404 })
+        }
+
+        if (commentDoc.data()?.authorId !== user.uid) {
             return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 })
         }
 
         await adminDb.runTransaction(async (transaction) => {
             // Delete related likes
-            const likesSnapshot = await adminDb.collection("postLikes").where("postId", "==", postId).get()
+            const likesSnapshot = await adminDb.collection("commentLikes").where("commentId", "==", commentId).get()
             likesSnapshot.forEach((doc) => {
                 transaction.delete(doc.ref)
             })
-
-            // Delete related saves
-            const savesSnapshot = await adminDb.collection("postSaves").where("postId", "==", postId).get()
-            savesSnapshot.forEach((doc) => {
-                transaction.delete(doc.ref)
-            })
-
-            // Delete the post
-            transaction.delete(postRef)
+            
+            // Delete the comment
+            transaction.delete(commentRef)
         })
 
         return new Response(JSON.stringify({ success: true }), { status: 200 })
     } catch (error) {
-        console.error("Delete post error:", error)
-        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Delete post failed" }), { status: 500 })
+        console.error("Delete comment error:", error)
+        return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Delete comment failed" }), { status: 500 })
     }
 }

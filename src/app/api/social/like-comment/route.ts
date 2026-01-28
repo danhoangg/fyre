@@ -11,61 +11,55 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
         }
 
-        const { postId } = await req.json();
-
-        if (!postId) {
+        const { postId, commentId } = await req.json();
+        
+        if (!commentId) {
             return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 });
         }
 
-        const likeDocId = `${user.uid}_${postId}`;
+        const likeDocId = `${user.uid}_${commentId}`;
 
         await adminDb.runTransaction(async (transaction) => {
-            const postRef = adminDb.collection("posts").doc(postId);
-            const likeRef = adminDb.collection("postLikes").doc(likeDocId);
+            const commentRef = adminDb.collection("posts").doc(postId).collection("comments").doc(commentId);
+            const likeRef = adminDb.collection("commentLikes").doc(likeDocId);
 
-            const [postDoc, existingLike] = await Promise.all([
-                transaction.get(postRef),
+            const [commentDoc, existingLike] = await Promise.all([
+                transaction.get(commentRef),
                 transaction.get(likeRef)
             ]);
 
-            // Check if post exists
-            if (!postDoc.exists) {
-                throw new Error("Post not found");
+            // Check if comment exists
+            if (!commentDoc.exists) {
+                throw new Error("Comment not found");
             }
 
-            let newLikeCount: number;
             // Check if already liked
             if (existingLike.exists) {
-                // Unlike the post
+                // Unlike the comment
                 transaction.delete(likeRef);
 
-                // Decrement like count on post
-                newLikeCount = Math.max((postDoc.data()?.likeCount || 1) - 1, 0);
+                // Decrement like count on comment
+                const newLikeCount = Math.max((commentDoc.data()?.likeCount || 1) - 1, 0);
+                transaction.update(commentRef, {
+                    likeCount: newLikeCount
+                });
                 isLiked = false;
             } else {
-                // Like the post
+                // Like the comment
                 transaction.set(likeRef, {
                     uid: user.uid,
                     postId: postId,
+                    commentId: commentId,
                     createdAt: FieldValue.serverTimestamp()
                 });
 
-                // Increment like count on post
-                newLikeCount = (postDoc.data()?.likeCount || 0) + 1;
+                // Increment like count on comment
+                const newLikeCount = (commentDoc.data()?.likeCount || 0) + 1;
+                transaction.update(commentRef, {
+                    likeCount: newLikeCount
+                }); 
                 isLiked = true;
             }
-
-            const createdAt = postDoc.data()?.createdAt;
-            const now = Date.now();
-            const createdDate = new Date(createdAt._seconds * 1000);
-            const diffInMs = now - createdDate.getTime();
-            const diffInHours = Math.floor(diffInMs / 3600000);
-            const score = newLikeCount / Math.pow((diffInHours + 2), 1.5);
-
-            transaction.update(postRef, {
-                likeCount: newLikeCount,
-                score: score
-            });
         });
 
         return new Response(JSON.stringify({ success: true, isLiked: isLiked }), { status: 200 });

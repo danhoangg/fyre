@@ -11,7 +11,7 @@ import { toggleFollow, editProfile } from "@/services/social";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
-import { loadUserPosts } from "@/services/posts";
+import { loadUserPosts, getPost } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
 
@@ -215,8 +215,10 @@ export default function AccountPage() {
         <AppSidebar user={sidebarUser} />
         <SidebarInset>
           <SidebarHeaderComponent title="Account" />
-          <div className="flex flex-1 items-center justify-center">
-            <ErrorComponent message="User not found" />
+          <div className="flex flex-1 justify-center">
+            <h1 className="text-xl md:text-2xl font-semibold">
+              Could not find user: {username}
+            </h1>
           </div>
         </SidebarInset>
       </SidebarProvider>
@@ -263,7 +265,7 @@ export default function AccountPage() {
                 {/* Username */}
                 <div>
                   <h1 className="text-xl md:text-2xl font-semibold">
-                    @{displayUsername}
+                    {displayUsername}
                   </h1>
                 </div>
 
@@ -298,6 +300,15 @@ export default function AccountPage() {
                 currentUserId={user.uid}
                 onPostDeleted={(postId) => {
                   setPosts(prev => prev.filter(p => p.id !== postId));
+                }}
+                onCommentUpdated={async (postId) => {
+                  // Refresh only the specific post that was commented on
+                  try {
+                    const updatedPost = await getPost(postId);
+                    setPosts(prev => prev.map(p => p.id === postId ? updatedPost : p));
+                  } catch (error) {
+                    console.error("Failed to refresh post after comment:", error);
+                  }
                 }}
               />
 

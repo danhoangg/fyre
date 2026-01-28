@@ -36,6 +36,23 @@ export async function getFriends(uid: string): Promise<string[]> {
   return friendsDoc.data()?.friends || [];
 }
 
+export async function getCommentsLikedStatus(commentIds: string[], userId: string): Promise<{ [key: string]: boolean }> {
+  if (!userId || commentIds.length === 0) return {};
+  
+  const likeChecks = await Promise.all(
+    commentIds.map(commentId => 
+      adminDb.collection("commentLikes").doc(`${userId}_${commentId}`).get()
+    )
+  );
+  
+  const likedStatus: { [key: string]: boolean } = {};
+  commentIds.forEach((commentId, index) => {
+    likedStatus[commentId] = likeChecks[index].exists;
+  });
+  
+  return likedStatus;
+}
+
 // Helper function to check which posts are liked by a user
 export async function getPostsLikedStatus(postIds: string[], userId: string): Promise<{ [key: string]: boolean }> {
   if (!userId || postIds.length === 0) return {};

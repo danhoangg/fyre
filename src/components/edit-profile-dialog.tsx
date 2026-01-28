@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Upload } from "lucide-react";
 import { ErrorComponent } from "./ui/error";
+import { useRouter } from "next/navigation";
 
 interface EditProfileDialogProps {
     open: boolean;
@@ -31,6 +32,8 @@ export function EditProfileDialog({
     currentAvatarUrl = "",
     onSave,
 }: EditProfileDialogProps) {
+    const router =useRouter();
+
     const [username, setUsername] = useState(currentUsername);
     const [description, setDescription] = useState(currentDescription);
     const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -84,6 +87,10 @@ export function EditProfileDialog({
                 avatarChanged
             });
             onOpenChange(false);
+
+            if (username !== currentUsername) {
+                router.replace(`/account/${encodeURIComponent(username)}`);
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to save profile");
         } finally {

@@ -14,6 +14,22 @@ export const toggleLikePost = async (postId: string) => {
     return result.isLiked;
 }
 
+export const toggleLikeComment = async (postId: string, commentId: string) => {
+    const res = await fetch("/api/social/like-comment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, commentId }),
+    });
+
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to toggle like on comment");
+    }
+
+    const result = await res.json();
+    return result.isLiked;
+}
+
 export const toggleSavePost = async (postId: string) => {
     const res = await fetch("/api/social/save-post", {
         method: "POST",

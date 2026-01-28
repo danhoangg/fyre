@@ -1,5 +1,5 @@
 import { adminDb } from "./firebase-admin";
-import { getPostsLikedStatus, getPostsSavedStatus } from "./user";
+import { getPostsLikedStatus, getPostsSavedStatus, getCommentsLikedStatus } from "./user";
 
 export async function getPostsByUserIds(
   uids: string[],
@@ -44,9 +44,12 @@ export async function getPostsByUserIds(
       const commentsWithUser = await Promise.all(
         comments.map(async comment => {
           const userDoc = await adminDb.collection("users").doc((comment as any).authorId).get();
+
           return {
             ...comment,
-            username: userDoc.exists ? userDoc.data()?.username : null
+            authorId: (comment as any).authorId,
+            username: userDoc.exists ? (userDoc.data() as any).username : "Unknown",
+            avatarUrl: userDoc.exists ? (userDoc.data() as any).avatarUrl : null
           };
         })
       );
@@ -62,14 +65,22 @@ export async function getPostsByUserIds(
   // Add liked/saved status if requesting user is provided
   if (requestingUserId && posts.length > 0) {
     const postIds = posts.map(p => p.id);
-    const [likedStatus, savedStatus] = await Promise.all([
+    const commentIds = posts.flatMap(p => p.comments.map((c: any) => c.id));
+    const [likedStatus, savedStatus, commentsLikedStatus] = await Promise.all([
       getPostsLikedStatus(postIds, requestingUserId),
-      getPostsSavedStatus(postIds, requestingUserId)
+      getPostsSavedStatus(postIds, requestingUserId),
+      getCommentsLikedStatus(commentIds, requestingUserId),
     ]);
 
     posts.forEach(post => {
       post.isLiked = likedStatus[post.id] || false;
       post.isSaved = savedStatus[post.id] || false;
+    
+      // Add liked status for comments
+      post.comments = post.comments.map((comment: any) => ({
+        ...comment,
+        isLiked: commentsLikedStatus[comment.id] || false
+      }));
     });
   }
 

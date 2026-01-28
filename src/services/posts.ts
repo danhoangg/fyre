@@ -52,6 +52,36 @@ export const loadUserPosts = async (uid: string, lastPostId?: string, limit: num
     return response.json();
 };
 
+export const loadSavedPosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
+    posts: any[];
+    hasMore: boolean;
+}> => {
+    const response = await fetch(
+        `/api/posts/get-saved-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to load saved posts");
+    }
+
+    return response.json();
+};
+
+export const loadHomePosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
+    posts: any[];
+    hasMore: boolean;
+}> => {
+    const response = await fetch(
+        `/api/posts/get-home-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
+    );
+
+    if (!response.ok) {
+        throw new Error("Failed to load home posts");
+    }
+
+    return response.json();
+};
+
 export const writeComment = async (data: {
     postId: string;
     content: string;

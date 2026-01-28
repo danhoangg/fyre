@@ -22,6 +22,7 @@ export async function POST(req: Request) {
         await adminDb.runTransaction(async (transaction) => {
             const postRef = adminDb.collection("posts").doc(postId);
             const saveRef = adminDb.collection("postSaves").doc(saveDocId);
+            const userSaveRef = adminDb.collection("users").doc(user.uid);
             const [postDoc, existingSave] = await Promise.all([
                 transaction.get(postRef),
                 transaction.get(saveRef)
@@ -43,6 +44,12 @@ export async function POST(req: Request) {
                     saveCount: newSaveCount
                 });
                 isSaved = false;
+
+                // Remove saved post from users savedPosts
+                transaction.update(userSaveRef, {
+                    savedPosts: FieldValue.arrayRemove(postId)
+                });
+                
             } else {
                 // Save the post
                 transaction.set(saveRef, {
@@ -57,6 +64,11 @@ export async function POST(req: Request) {
                     saveCount: newSaveCount
                 }); 
                 isSaved = true;
+
+                // Add saved post to users savedPosts
+                transaction.update(userSaveRef, {
+                    savedPosts: FieldValue.arrayUnion(postId)
+                });
             }
         });
 

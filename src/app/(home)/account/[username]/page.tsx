@@ -310,6 +310,7 @@ export default function AccountPage() {
                     console.error("Failed to refresh post after comment:", error);
                   }
                 }}
+                showFollowing={false}
               />
 
               {/* Infinite scroll trigger */}

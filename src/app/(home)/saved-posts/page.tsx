@@ -11,7 +11,7 @@ import { toggleFollow, editProfile } from "@/services/social";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
-import { loadUserPosts, getPost, loadSavedPosts, loadHomePosts } from "@/services/posts";
+import { loadUserPosts, getPost, loadSavedPosts } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
 
@@ -27,7 +27,7 @@ interface SidebarUser {
     uid: string;
 }
 
-export default function HomePage() {
+export default function SavedPostsPage() {
     const params = useParams();
     const user = useUser();
 
@@ -47,22 +47,22 @@ export default function HomePage() {
 
     // Initial data fetch
     useEffect(() => {
-        const fetchHomeData = async () => {
+        const fetchSavedPosts = async () => {
             setLoading(true);
             try {
                 // Load initial posts
-                const postsData = await loadHomePosts(user.uid, undefined, 10);
+                const postsData = await loadSavedPosts(user.uid, undefined, 10);
                 setPosts(postsData.posts);
                 setHasMore(postsData.hasMore);
             } catch (error) {
-                console.error("Failed to load home data:", error);
-                setError("Failed to load home data");
+                console.error("Failed to load saved posts:", error);
+                setError("Failed to load saved posts");
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchHomeData();
+        fetchSavedPosts();
     }, []);
 
     useEffect(() => {
@@ -88,7 +88,7 @@ export default function HomePage() {
         setLoadingMore(true);
         try {
             const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-            const data = await loadHomePosts(user.uid, lastPostId, 10);
+            const data = await loadSavedPosts(user.uid, lastPostId, 10);
 
             setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);
@@ -116,9 +116,9 @@ export default function HomePage() {
             <SidebarProvider>
                 <AppSidebar user={sidebarUser} />
                 <SidebarInset>
-                    <SidebarHeaderComponent title="Home" />
+                    <SidebarHeaderComponent title="Saved Posts" />
                     <div className="flex flex-1 items-center justify-center">
-                        <LoadingComponent text="Loading home page..." />
+                        <LoadingComponent text="Loading saved posts..." />
                     </div>
                 </SidebarInset>
             </SidebarProvider>
@@ -129,11 +129,10 @@ export default function HomePage() {
         <SidebarProvider>
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
-                <SidebarHeaderComponent title="Home" />
+                <SidebarHeaderComponent title="Saved Posts" />
                 {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
-                      <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>
                         <div className="space-y-6">
                             <PostsGrid
                                 posts={posts}

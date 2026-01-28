@@ -25,14 +25,16 @@ export async function POST(req: Request) {
         const reverseFollowDocId = `${followUid}_${user.uid}`;
 
         await adminDb.runTransaction(async (transaction) => {
-            // ALL READS FIRST - Firestore requirement
+            // ALL READS FIRST
+            const userRef = adminDb.collection("users").doc(user.uid);
             const targetUserRef = adminDb.collection("users").doc(followUid);
             const followRef = adminDb.collection("follows").doc(followDocId);
             const reverseFollowRef = adminDb.collection("follows").doc(reverseFollowDocId);
             const userFriendsRef = adminDb.collection("friends").doc(user.uid);
             const targetFriendsRef = adminDb.collection("friends").doc(followUid);
 
-            const [targetUserDoc, existingFollow, reverseFollow, userFriendsDoc, targetFriendsDoc] = await Promise.all([
+            const [userDoc, targetUserDoc, existingFollow, reverseFollow, userFriendsDoc, targetFriendsDoc] = await Promise.all([
+                transaction.get(userRef),
                 transaction.get(targetUserRef),
                 transaction.get(followRef),
                 transaction.get(reverseFollowRef),
@@ -50,6 +52,13 @@ export async function POST(req: Request) {
                 // Currently following - UNFOLLOW
                 transaction.delete(followRef);
                 isNowFollowing = false;
+
+                transaction.update(userRef, {
+                    followingCount: FieldValue.increment(-1)
+                });
+                transaction.update(targetUserRef, {
+                    followersCount: FieldValue.increment(-1)
+                });
 
                 // Remove from friends if they were friends
                 if (userFriendsDoc.exists) {
@@ -77,6 +86,13 @@ export async function POST(req: Request) {
                     createdAt: FieldValue.serverTimestamp()
                 });
                 isNowFollowing = true;
+
+                transaction.update(userRef, {
+                    followingCount: FieldValue.increment(1)
+                });
+                transaction.update(targetUserRef, {
+                    followersCount: FieldValue.increment(1)
+                });
 
                 // If they follow each other, create friend documents
                 if (reverseFollow.exists) {

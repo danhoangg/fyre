@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin"
 import { getCurrentUser } from "@/lib/session"
+import { isFollowingCached } from "@/lib/cache"
 
 function serializeFirestoreValue(value: any): any {
     if (value && typeof value.toDate === "function") return value.toDate().toISOString();
@@ -55,7 +56,18 @@ export async function POST(req: Request) {
         // Exclude current user from results
         userData = userData.filter(user => user.uid !== currentUser.uid);
 
-        return new Response(JSON.stringify({ users: userData }), { status: 200 });
+        // Add follow status for each user
+        const userDataWithFollowStatus = await Promise.all(
+            userData.map(async (user) => {
+                const isFollowing = await isFollowingCached(currentUser.uid, user.uid);
+                return {
+                    ...user,
+                    isFollowing
+                };
+            })
+        );
+
+        return new Response(JSON.stringify({ users: userDataWithFollowStatus }), { status: 200 });
     } catch (error) {
         console.error("Search users error:", error);
         return new Response(

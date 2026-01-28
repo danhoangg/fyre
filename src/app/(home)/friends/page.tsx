@@ -53,20 +53,22 @@ export default function Page() {
         setLoading(true);
         if (user.friends && user.friends.length > 0) {
             getUsersData(user.friends)
-                .then(data => setFriendsData(data))
+                .then(data => {
+                    setFriendsData(data);
+                    // Set following state from API response
+                    const followingMap: { [key: string]: boolean } = {};
+                    data.forEach((friend: any) => {
+                        followingMap[friend.uid] = friend.isFollowing || false;
+                    });
+                    setFollowing(followingMap);
+                })
                 .catch(error => setError(error instanceof Error ? error.message : "Failed to fetch friends data"));
+        } else {
+            setLoading(false);
         }
 
-        setFollowing(prev => {
-            const newFollowing: { [key: string]: boolean } = { ...prev };
-            user.following?.forEach((uid: string) => {
-                newFollowing[uid] = true;
-            });
-            return newFollowing;
-        });
-
         setLoading(false);
-    }, [user.friends, user.following]);
+    }, [user.friends]);
 
     useEffect(() => {
         const delaySearch = setTimeout(async () => {
@@ -166,7 +168,7 @@ export default function Page() {
                                                 <ItemDescription>{user.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {following[user.uid] ? (
+                                                {user.isFollowing ? (
                                                     <Button variant="secondary" onClick={(e) => handleFollowToggle(e, user.uid)}>
                                                         <Check className="h-4 w-4" />
                                                         <span>Following</span>
@@ -211,7 +213,7 @@ export default function Page() {
                                                 <ItemDescription>{friend.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {following[friend.uid] ? (
+                                                {friend.isFollowing ? (
                                                     <Button variant="secondary" onClick={(e) => handleFollowToggle(e, friend.uid)}>
                                                         <Check className="h-4 w-4" />
                                                         <span>Following</span>

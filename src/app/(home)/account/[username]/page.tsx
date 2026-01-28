@@ -75,6 +75,7 @@ export default function AccountPage() {
         setAvatarUrl(userData.avatarUrl || "/default-avatar.png");
         setFollowersCount(userData.followersCount || 0);
         setFollowingCount(userData.followingCount || 0);
+        setFollowing(userData.isFollowing || false);
 
         // Load initial posts
         const postsData = await loadUserPosts(userData.uid, undefined, 5);
@@ -90,12 +91,6 @@ export default function AccountPage() {
 
     fetchAccountData();
   }, [username]);
-
-  useEffect(() => {
-    if (accountUser) {
-      setFollowing(user.following?.includes(accountUser.uid) || false);
-    }
-  }, [user.following, accountUser]);
 
   useEffect(() => {
     const observer: IntersectionObserver = new IntersectionObserver(

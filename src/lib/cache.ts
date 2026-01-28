@@ -6,6 +6,7 @@ const cache = new Map<string, { data: any; expiry: number }>();
 const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 const USER_DATA_TTL = 10 * 60 * 1000; // 10 minutes for user data (less frequently changed)
 const FOLLOW_COUNT_TTL = 10 * 60 * 1000; // 10 minutes for follow counts
+const FOLLOW_STATUS_TTL = 1 * 60 * 1000; // 1 minute for follow status (changes frequently and user-specific)
 
 function getCacheKey(type: string, id: string): string {
   return `${type}:${id}`;
@@ -92,7 +93,7 @@ export async function getFollowingCountCached(uid: string): Promise<number> {
   return count;
 }
 
-// Cache follow status (shorter TTL since it can change)
+// Cache follow status (shorter TTL since it can change frequently and is user-specific)
 export async function isFollowingCached(fromUid: string, toUid: string): Promise<boolean> {
   const cacheKey = getCacheKey("follow_status", `${fromUid}_${toUid}`);
   const cached = getCache<boolean>(cacheKey);
@@ -102,7 +103,7 @@ export async function isFollowingCached(fromUid: string, toUid: string): Promise
   const followDoc = await adminDb.collection("follows").doc(followDocId).get();
   const isFollowing = followDoc.exists;
 
-  setCache(cacheKey, isFollowing, 2 * 60 * 1000); // 2 minutes TTL
+  setCache(cacheKey, isFollowing, FOLLOW_STATUS_TTL);
   return isFollowing;
 }
 
@@ -140,7 +141,7 @@ export async function getFollowStatusesCached(
       setCache(
         getCacheKey("follow_status", `${fromUid}_${toUid}`),
         isFollowing,
-        2 * 60 * 1000
+        FOLLOW_STATUS_TTL
       );
     });
   }

@@ -1,31 +1,22 @@
+import { storage } from "./firebase"
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage"
+
 export async function uploadFile(file: File, path = "images"): Promise<string> {
-  const fd = new FormData()
-  fd.append("file", file, file.name)
-  fd.append("path", path)
+  const ext = file.name.split(".").pop() || "jpg"
+  const filename = `${path}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+  const storageRef = ref(storage, filename)
 
-  const res = await fetch("/api/storage/upload", {
-    method: "POST",
-    body: fd,
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Upload failed: ${res.status} ${text}`)
-  }
-
-  const data = await res.json()
-  return data.url
+  const snapshot = await uploadBytes(storageRef, file)
+  const url = await getDownloadURL(snapshot.ref)
+  return url
 }
 
 export async function deleteFileByUrl(url: string): Promise<void> {
-  const res = await fetch("/api/storage/delete", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url }),
-  })
-
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`Delete failed: ${res.status} ${text}`)
+  try {
+    const storageRef = ref(storage, url)
+    await deleteObject(storageRef)
+  } catch (err) {
+    console.error("Delete failed:", err)
+    // Don't throw if delete fails, just log it
   }
 }

@@ -1,6 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin"
 import { getCurrentUser } from "@/lib/session"
-import { isFollowingCached } from "@/lib/cache"
+import { isFollowingCached, getFollowStatusesCached } from "@/lib/cache"
 import * as admin from "firebase-admin"
 
 function serializeFirestoreValue(value: any): any {
@@ -40,8 +40,7 @@ export async function GET(req: Request) {
         
         let isFollowing = false;
         if (currentUser) {
-            // Check if current user is in target user's followers array
-            isFollowing = data.followers?.includes(currentUser.uid) || false;
+            isFollowing = await isFollowingCached(currentUser.uid, userDoc.id);
         }
 
         return new Response(JSON.stringify({
@@ -65,22 +64,19 @@ export async function POST(req: Request) {
         const currentUser = await getCurrentUser();
         const userDocs = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", users).get();
         
-        const userData = await Promise.all(userDocs.docs.map(async (doc) => {
+        const targetUids = userDocs.docs.map(doc => doc.id);
+        const followStatuses = currentUser ? await getFollowStatusesCached(currentUser.uid, targetUids) : {};
+
+        const userData = userDocs.docs.map((doc) => {
             const data = doc.data();
             const plainData = serializeFirestoreValue(data);
             
-            let isFollowing = false;
-            if (currentUser) {
-                // Check if current user is in target user's followers array
-                isFollowing = data.followers?.includes(currentUser.uid) || false;
-            }
-            
             return {
                 uid: doc.id,
-                isFollowing,
+                isFollowing: followStatuses[doc.id] || false,
                 ...plainData
             };
-        }));
+        });
 
         return new Response(JSON.stringify({ users: userData }), { status: 200 });
     } catch (error) {

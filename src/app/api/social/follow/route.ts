@@ -56,12 +56,14 @@ export async function POST(req: Request) {
 
                 transaction.update(userRef, {
                     followingCount: FieldValue.increment(-1),
-                    following: FieldValue.arrayRemove(followUid)
                 });
                 transaction.update(targetUserRef, {
                     followersCount: FieldValue.increment(-1),
-                    followers: FieldValue.arrayRemove(user.uid)
                 });
+
+                // Remove from subcollections
+                transaction.delete(adminDb.collection("users").doc(user.uid).collection("following").doc(followUid));
+                transaction.delete(adminDb.collection("users").doc(followUid).collection("followers").doc(user.uid));
 
                 // Remove from friends if they were friends
                 if (userFriendsDoc.exists) {
@@ -92,11 +94,29 @@ export async function POST(req: Request) {
 
                 transaction.update(userRef, {
                     followingCount: FieldValue.increment(1),
-                    following: FieldValue.arrayUnion(followUid)
                 });
                 transaction.update(targetUserRef, {
                     followersCount: FieldValue.increment(1),
-                    followers: FieldValue.arrayUnion(user.uid)
+                });
+
+                const targetUserData = targetUserDoc.data();
+                const currentUserData = userDoc.data();
+
+                // Add to subcollections
+                transaction.set(adminDb.collection("users").doc(user.uid).collection("following").doc(followUid), {
+                    uid: followUid,
+                    username: targetUserData?.username || "",
+                    avatarUrl: targetUserData?.avatarUrl || "",
+                    description: targetUserData?.description || "",
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                transaction.set(adminDb.collection("users").doc(followUid).collection("followers").doc(user.uid), {
+                    uid: user.uid,
+                    username: currentUserData?.username || "",
+                    avatarUrl: currentUserData?.avatarUrl || "",
+                    description: currentUserData?.description || "",
+                    createdAt: FieldValue.serverTimestamp()
                 });
 
                 // If they follow each other, create friend documents

@@ -28,7 +28,7 @@ export async function getPostsByUserIds(
   const querySnapshot = await query.get();
 
   // Extract unique author IDs for batch fetch
-  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean))) as string[];
   
   // Fetch all post authors in a single batch read directly from Firestore to avoid stale cache
   const authorsMap: Record<string, any> = {};
@@ -38,6 +38,9 @@ export async function getPostsByUserIds(
       authorsMap[doc.id] = doc.data();
     });
   }
+
+  // Fetch follow statuses for all authors
+  const followStatuses = requestingUserId ? await getFollowStatusesCached(requestingUserId, authorIds) : {};
 
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
@@ -51,8 +54,8 @@ export async function getPostsByUserIds(
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        // Check following status from author's followers array
-        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
+        // Check following status
+        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
@@ -146,7 +149,7 @@ export async function getPostsByPostIds(
   const querySnapshot = await query.get();
 
   // Extract unique author IDs for batch fetch
-  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean))) as string[];
   
   // Fetch all post authors in a single batch read directly from Firestore
   const authorsMap: Record<string, any> = {};
@@ -156,6 +159,9 @@ export async function getPostsByPostIds(
       authorsMap[doc.id] = doc.data();
     });
   }
+
+  // Fetch follow statuses for all authors
+  const followStatuses = requestingUserId ? await getFollowStatusesCached(requestingUserId, authorIds) : {};
 
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
@@ -169,8 +175,8 @@ export async function getPostsByPostIds(
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        // Check following status from author's followers array
-        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
+        // Check following status
+        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
@@ -257,7 +263,7 @@ export async function getExplorePostsByScore(
   const querySnapshot = await query.get();
 
   // Extract unique author IDs for batch fetch
-  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean))) as string[];
   
   // Fetch all post authors in a single batch read directly from Firestore
   const authorsMap: Record<string, any> = {};
@@ -267,6 +273,9 @@ export async function getExplorePostsByScore(
       authorsMap[doc.id] = doc.data();
     });
   }
+
+  // Fetch follow statuses for all authors
+  const followStatuses = requestingUserId ? await getFollowStatusesCached(requestingUserId, authorIds) : {};
 
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
@@ -280,8 +289,8 @@ export async function getExplorePostsByScore(
       if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-        // Check following status from author's followers array
-        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
+        // Check following status
+        postData.isAuthorFollowed = followStatuses[postData.authorId] || false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;

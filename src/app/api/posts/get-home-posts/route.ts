@@ -18,8 +18,9 @@ export async function GET(req: Request) {
             return new Response(JSON.stringify({ error: "User ID is required" }), { status: 400 })
         }
 
-        const friendsDoc = await adminDb.collection("friends").doc(uid).get()
-        const friends = friendsDoc.exists ? friendsDoc.data()?.friends || [] : []
+        // Get friends from the user's friends subcollection
+        const friendsSnapshot = await adminDb.collection("users").doc(uid).collection("friends").get()
+        const friends = friendsSnapshot.docs.map(doc => doc.id)
 
         if (friends.length === 0) {
             return new Response(JSON.stringify({ posts: [], hasMore: false }), { status: 200 })

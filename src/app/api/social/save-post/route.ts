@@ -45,17 +45,16 @@ export async function POST(req: Request) {
                 });
                 isSaved = false;
 
-                // Remove saved post from users savedPosts
-                transaction.update(userSaveRef, {
-                    savedPosts: FieldValue.arrayRemove(postId)
-                });
+                // Remove from users savedPosts subcollection
+                transaction.delete(adminDb.collection("users").doc(user.uid).collection("savedPosts").doc(postId));
                 
             } else {
                 // Save the post
+                const now = FieldValue.serverTimestamp();
                 transaction.set(saveRef, {
                     uid: user.uid,
                     postId: postId,
-                    createdAt: FieldValue.serverTimestamp()
+                    createdAt: now
                 });
 
                 // Increment save count on post
@@ -65,9 +64,10 @@ export async function POST(req: Request) {
                 }); 
                 isSaved = true;
 
-                // Add saved post to users savedPosts
-                transaction.update(userSaveRef, {
-                    savedPosts: FieldValue.arrayUnion(postId)
+                // Add to users savedPosts subcollection
+                transaction.set(adminDb.collection("users").doc(user.uid).collection("savedPosts").doc(postId), {
+                    postId: postId,
+                    createdAt: now
                 });
             }
         });

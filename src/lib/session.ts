@@ -32,6 +32,10 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
     const friendsSnapshot = await adminDb.collection("users").doc(uid).collection("friends").get()
     const friends = friendsSnapshot.docs.map(doc => doc.id)
 
+    // Get list of saved posts UIDs from the new subcollection
+    const savedPostsSnapshot = await adminDb.collection("users").doc(uid).collection("savedPosts").get()
+    const savedPosts = savedPostsSnapshot.docs.map(doc => doc.id)
+
     function serializeFirestoreValue(value: any): any {
       if (value && typeof value.toDate === "function") return value.toDate().toISOString()
       if (Array.isArray(value)) return value.map(serializeFirestoreValue)
@@ -51,6 +55,7 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
       following,
       followers,
       friends,
+      savedPosts,
 
       followersCount: followersCount,
       followingCount: followingCount

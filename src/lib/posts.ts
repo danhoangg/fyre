@@ -128,7 +128,8 @@ export async function getPostsByPostIds(
   postIds: string[],
   limit: number = 10,
   lastPostId?: string,
-  requestingUserId?: string
+  requestingUserId?: string,
+  preserveOrder: boolean = false
 ) {
   if (!postIds || postIds.length === 0) {
     return { posts: [], hasMore: false };
@@ -137,12 +138,14 @@ export async function getPostsByPostIds(
   const postsRef = adminDb.collection("posts");
   let query = postsRef.where(admin.firestore.FieldPath.documentId(), "in", postIds);
 
-  query = query.orderBy("createdAt", "desc").limit(limit);
+  if (!preserveOrder) {
+    query = query.orderBy("createdAt", "desc").limit(limit);
 
-  if (lastPostId) {
-    const lastDoc = await postsRef.doc(lastPostId).get();
-    if (lastDoc.exists) {
-      query = query.startAfter(lastDoc);
+    if (lastPostId) {
+      const lastDoc = await postsRef.doc(lastPostId).get();
+      if (lastDoc.exists) {
+        query = query.startAfter(lastDoc);
+      }
     }
   }
 
@@ -239,7 +242,12 @@ export async function getPostsByPostIds(
     });
   }
 
-  const hasMore = querySnapshot.docs.length === limit;
+  if (preserveOrder) {
+    const orderMap = new Map(postIds.map((id, index) => [id, index]));
+    posts.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+  }
+
+  const hasMore = preserveOrder ? false : querySnapshot.docs.length === limit;
 
   // Serialize Firestore data to plain objects
   return JSON.parse(JSON.stringify({ posts, hasMore })) as { posts: any[]; hasMore: boolean };

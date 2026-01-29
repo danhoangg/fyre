@@ -1,3 +1,5 @@
+import { uploadFile, deleteFileByUrl } from "@/lib/storage";
+
 export const toggleLikePost = async (postId: string) => {
     const res = await fetch("/api/social/like-post", {
         method: "POST",
@@ -115,23 +117,8 @@ export const editProfile = async (username: string, description: string, current
 
         // Upload new avatar if provided
         if (avatarFile) {
-            const formData = new FormData();
-            formData.append("file", avatarFile);
-            formData.append("path", "avatars");
-
-            const uploadRes = await fetch("/api/storage/upload", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!uploadRes.ok) {
-                const data = await uploadRes.json();
-                throw new Error(data.error || "Failed to upload avatar");
-            }
-
-            const uploadData = await uploadRes.json();
-            newAvatarUrl = uploadData.url;
-            uploadedAvatarUrl = uploadData.url;
+            newAvatarUrl = await uploadFile(avatarFile, "avatars");
+            uploadedAvatarUrl = newAvatarUrl;
         }
 
         // Update user record
@@ -147,11 +134,7 @@ export const editProfile = async (username: string, description: string, current
             // Revert: delete the newly uploaded avatar if update fails
             if (uploadedAvatarUrl) {
                 try {
-                    await fetch("/api/storage/delete", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ url: uploadedAvatarUrl }),
-                    });
+                    await deleteFileByUrl(uploadedAvatarUrl);
                 } catch (deleteErr) {
                     console.error("Failed to delete uploaded avatar during rollback:", deleteErr);
                 }
@@ -163,11 +146,7 @@ export const editProfile = async (username: string, description: string, current
         // Delete old avatar if everything succeeded and we uploaded a new one
         if (uploadedAvatarUrl && currentAvatarUrl && !currentAvatarUrl.includes("/default-avatar.png")) {
             try {
-                await fetch("/api/storage/delete", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url: currentAvatarUrl }),
-                });
+                await deleteFileByUrl(currentAvatarUrl);
             } catch (deleteErr) {
                 // Log but don't fail the operation if old avatar cleanup fails
                 console.error("Failed to delete old avatar:", deleteErr);

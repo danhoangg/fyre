@@ -23,17 +23,14 @@ export async function isFollowing(fromUid: string, toUid: string): Promise<boole
 
 // Helper function to check if two users are friends
 export async function areFriends(uid1: string, uid2: string): Promise<boolean> {
-  const friendsDoc = await adminDb.collection("friends").doc(uid1).get();
-  if (!friendsDoc.exists) return false;
-  const friends = friendsDoc.data()?.friends || [];
-  return friends.includes(uid2);
+  const friendDoc = await adminDb.collection("users").doc(uid1).collection("friends").doc(uid2).get();
+  return friendDoc.exists;
 }
 
-// Helper function to get friends list for a user
+// Helper function to get friends list for a user (returns list of UIDs)
 export async function getFriends(uid: string): Promise<string[]> {
-  const friendsDoc = await adminDb.collection("friends").doc(uid).get();
-  if (!friendsDoc.exists) return [];
-  return friendsDoc.data()?.friends || [];
+  const friendsSnapshot = await adminDb.collection("users").doc(uid).collection("friends").get();
+  return friendsSnapshot.docs.map(doc => doc.id);
 }
 
 export async function getCommentsLikedStatus(commentIds: string[], userId: string): Promise<{ [key: string]: boolean }> {

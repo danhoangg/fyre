@@ -31,16 +31,12 @@ export async function POST(req: Request) {
             const targetUserRef = adminDb.collection("users").doc(followUid);
             const followRef = adminDb.collection("follows").doc(followDocId);
             const reverseFollowRef = adminDb.collection("follows").doc(reverseFollowDocId);
-            const userFriendsRef = adminDb.collection("friends").doc(user.uid);
-            const targetFriendsRef = adminDb.collection("friends").doc(followUid);
 
-            const [userDoc, targetUserDoc, existingFollow, reverseFollow, userFriendsDoc, targetFriendsDoc] = await Promise.all([
+            const [userDoc, targetUserDoc, existingFollow, reverseFollow] = await Promise.all([
                 transaction.get(userRef),
                 transaction.get(targetUserRef),
                 transaction.get(followRef),
                 transaction.get(reverseFollowRef),
-                transaction.get(userFriendsRef),
-                transaction.get(targetFriendsRef)
             ]);
 
             // Check if target user exists
@@ -56,31 +52,18 @@ export async function POST(req: Request) {
 
                 transaction.update(userRef, {
                     followingCount: FieldValue.increment(-1),
-                    following: FieldValue.arrayRemove(followUid)
                 });
                 transaction.update(targetUserRef, {
                     followersCount: FieldValue.increment(-1),
-                    followers: FieldValue.arrayRemove(user.uid)
                 });
 
-                // Remove from friends if they were friends
-                if (userFriendsDoc.exists) {
-                    const friendsList = userFriendsDoc.data()?.friends || [];
-                    if (friendsList.includes(followUid)) {
-                        transaction.update(userFriendsRef, {
-                            friends: FieldValue.arrayRemove(followUid)
-                        });
-                    }
-                }
+                // Remove from subcollections
+                transaction.delete(adminDb.collection("users").doc(user.uid).collection("following").doc(followUid));
+                transaction.delete(adminDb.collection("users").doc(followUid).collection("followers").doc(user.uid));
 
-                if (targetFriendsDoc.exists) {
-                    const friendsList = targetFriendsDoc.data()?.friends || [];
-                    if (friendsList.includes(user.uid)) {
-                        transaction.update(targetFriendsRef, {
-                            friends: FieldValue.arrayRemove(user.uid)
-                        });
-                    }
-                }
+                // Remove from friends if they were friends
+                transaction.delete(adminDb.collection("users").doc(user.uid).collection("friends").doc(followUid));
+                transaction.delete(adminDb.collection("users").doc(followUid).collection("friends").doc(user.uid));
             } else {
                 // Not following - FOLLOW
                 transaction.set(followRef, {
@@ -92,22 +75,48 @@ export async function POST(req: Request) {
 
                 transaction.update(userRef, {
                     followingCount: FieldValue.increment(1),
-                    following: FieldValue.arrayUnion(followUid)
                 });
                 transaction.update(targetUserRef, {
                     followersCount: FieldValue.increment(1),
-                    followers: FieldValue.arrayUnion(user.uid)
                 });
 
-                // If they follow each other, create friend documents
-                if (reverseFollow.exists) {
-                    transaction.set(userFriendsRef, {
-                        friends: FieldValue.arrayUnion(followUid)
-                    }, { merge: true });
+                const targetUserData = targetUserDoc.data();
+                const currentUserData = userDoc.data();
 
-                    transaction.set(targetFriendsRef, {
-                        friends: FieldValue.arrayUnion(user.uid)
-                    }, { merge: true });
+                // Add to subcollections
+                transaction.set(adminDb.collection("users").doc(user.uid).collection("following").doc(followUid), {
+                    uid: followUid,
+                    username: targetUserData?.username || "",
+                    avatarUrl: targetUserData?.avatarUrl || "",
+                    description: targetUserData?.description || "",
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                transaction.set(adminDb.collection("users").doc(followUid).collection("followers").doc(user.uid), {
+                    uid: user.uid,
+                    username: currentUserData?.username || "",
+                    avatarUrl: currentUserData?.avatarUrl || "",
+                    description: currentUserData?.description || "",
+                    createdAt: FieldValue.serverTimestamp()
+                });
+
+                // If they follow each other, create friend documents in subcollections
+                if (reverseFollow.exists) {
+                    transaction.set(adminDb.collection("users").doc(user.uid).collection("friends").doc(followUid), {
+                        uid: followUid,
+                        username: targetUserData?.username || "",
+                        avatarUrl: targetUserData?.avatarUrl || "",
+                        description: targetUserData?.description || "",
+                        createdAt: FieldValue.serverTimestamp()
+                    });
+
+                    transaction.set(adminDb.collection("users").doc(followUid).collection("friends").doc(user.uid), {
+                        uid: user.uid,
+                        username: currentUserData?.username || "",
+                        avatarUrl: currentUserData?.avatarUrl || "",
+                        description: currentUserData?.description || "",
+                        createdAt: FieldValue.serverTimestamp()
+                    });
                 }
             }
         });

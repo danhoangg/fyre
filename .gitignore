@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# dev admin api routes
+/src/app/api/admin/
+
 # dependencies
 /node_modules
 /.pnp

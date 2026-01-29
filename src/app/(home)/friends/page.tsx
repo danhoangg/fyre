@@ -22,7 +22,7 @@ import {
     SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useUser } from "@/lib/user-context"
-import { getUsersData, searchUsers } from "@/services/social"
+import { getFriendsData, searchUsers } from "@/services/social"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
 import { Check, CirclePlus, Search } from "lucide-react"
 import { ErrorComponent } from "@/components/ui/error"
@@ -51,24 +51,22 @@ export default function Page() {
 
     useEffect(() => {
         setLoading(true);
-        if (user.friends && user.friends.length > 0) {
-            getUsersData(user.friends)
-                .then(data => {
-                    setFriendsData(data);
-                    // Set following state from API response
-                    const followingMap: { [key: string]: boolean } = {};
-                    data.forEach((friend: any) => {
-                        followingMap[friend.uid] = friend.isFollowing || false;
-                    });
-                    setFollowing(followingMap);
-                })
-                .catch(error => setError(error instanceof Error ? error.message : "Failed to fetch friends data"));
-        } else {
-            setLoading(false);
-        }
-
-        setLoading(false);
-    }, [user.friends]);
+        getFriendsData()
+            .then(data => {
+                setFriendsData(data);
+                // Set following state from API response
+                const followingMap: { [key: string]: boolean } = {};
+                data.forEach((friend: any) => {
+                    followingMap[friend.uid] = friend.isFollowing || false;
+                });
+                setFollowing(followingMap);
+            })
+            .catch(error => {
+                console.error("Fetch friends error:", error);
+                setError(error instanceof Error ? error.message : "Failed to fetch friends data");
+            })
+            .finally(() => setLoading(false));
+    }, [user.uid]);
 
     useEffect(() => {
         const delaySearch = setTimeout(async () => {

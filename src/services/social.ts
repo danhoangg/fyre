@@ -80,6 +80,18 @@ export const getUsersData = async (userUids: string[]) => {
     return result.users;
 }
 
+export const getFriendsData = async (uid?: string) => {
+    const url = uid ? `/api/social/get-friends?uid=${uid}` : "/api/social/get-friends";
+    const res = await fetch(url);
+
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to fetch friends data");
+    }
+
+    return await res.json();
+}
+
 export const searchUsers = async (query: string) => {
     const res = await fetch("/api/social/search-users", {
         method: "POST",

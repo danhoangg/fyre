@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin"
 import { getCurrentUser } from "@/lib/session"
+import { isFollowingCached } from "@/lib/cache"
 import * as admin from "firebase-admin"
 
 function serializeFirestoreValue(value: any): any {
@@ -36,9 +37,16 @@ export async function GET(req: Request) {
         const userDoc = userSnapshot.docs[0];
         const data = userDoc.data();
         const plainData = serializeFirestoreValue(data);
+        
+        let isFollowing = false;
+        if (currentUser) {
+            // Check if current user is in target user's followers array
+            isFollowing = data.followers?.includes(currentUser.uid) || false;
+        }
 
         return new Response(JSON.stringify({
             uid: userDoc.id,
+            isFollowing,
             ...plainData
         }), { status: 200 });
     } catch (error) {
@@ -54,19 +62,29 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 });
         }
 
+        const currentUser = await getCurrentUser();
         const userDocs = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", users).get();
-        const userData = userDocs.docs.map(doc => {
+        
+        const userData = await Promise.all(userDocs.docs.map(async (doc) => {
             const data = doc.data();
-
             const plainData = serializeFirestoreValue(data);
+            
+            let isFollowing = false;
+            if (currentUser) {
+                // Check if current user is in target user's followers array
+                isFollowing = data.followers?.includes(currentUser.uid) || false;
+            }
+            
             return {
                 uid: doc.id,
+                isFollowing,
                 ...plainData
             };
-        });
+        }));
 
         return new Response(JSON.stringify({ users: userData }), { status: 200 });
     } catch (error) {
-
+        console.error("Failed to get users:", error);
+        return new Response(JSON.stringify({ error: "Failed to get users" }), { status: 500 });
     }
 }

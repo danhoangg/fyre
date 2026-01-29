@@ -1,5 +1,6 @@
 import { adminDb } from "./firebase-admin";
 import { getPostsLikedStatus, getPostsSavedStatus, getCommentsLikedStatus } from "./user";
+import { getUserDataCached, getFollowStatusesCached } from "./cache";
 import * as admin from "firebase-admin";
 
 export async function getPostsByUserIds(
@@ -26,6 +27,18 @@ export async function getPostsByUserIds(
 
   const querySnapshot = await query.get();
 
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore to avoid stale cache
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
+  }
+
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
       const postData: any = {
@@ -34,45 +47,48 @@ export async function getPostsByUserIds(
       };
 
       // Get post author info
-      const authorDoc = await adminDb.collection("users").doc(postData.authorId as string).get();
-      if (authorDoc.exists) {
-        const authorData = authorDoc.data() as any;
+      const authorData = authorsMap[postData.authorId];
+      if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-
-        const followDocId = `${requestingUserId}_${postData.authorId}`;
-        const isFollowing = await adminDb.collection("follows").doc(followDocId).get();
-        postData.isAuthorFollowed = isFollowing.exists;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
-      // Fetch comments subcollection
-      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").get();
+      // Fetch only first 10 comments to reduce read operations
+      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").limit(10).get();
       const comments = commentsSnapshot.docs.map(commentDoc => ({
         id: commentDoc.id,
         ...commentDoc.data()
       }));
 
-      // Get user from comments.authorId in comments subcollection
+      // Get user from comments.authorId in comments subcollection using cache
       const commentsWithUser = await Promise.all(
         comments.map(async comment => {
-          const userDoc = await adminDb.collection("users").doc((comment as any).authorId).get();
+          const userDoc = await getUserDataCached((comment as any).authorId);
 
           return {
             ...comment,
             authorId: (comment as any).authorId,
-            username: userDoc.exists ? (userDoc.data() as any).username : "Unknown",
-            avatarUrl: userDoc.exists ? (userDoc.data() as any).avatarUrl : null
+            username: userDoc ? userDoc.username : "Unknown",
+            avatarUrl: userDoc ? userDoc.avatarUrl : null
           };
         })
       );
 
+      // Get total comment count efficiently
+      const commentCountSnapshot = await doc.ref.collection("comments").count().get();
+      const totalCommentCount = commentCountSnapshot.data().count;
+
       return {
         ...postData,
-        commentCount: comments.length,
-        comments: commentsWithUser
+        commentCount: totalCommentCount,
+        comments: commentsWithUser,
+        hasMoreComments: totalCommentCount > 10
       };
     })
   ) as any[];
@@ -129,6 +145,17 @@ export async function getPostsByPostIds(
 
   const querySnapshot = await query.get();
 
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
+  }
 
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
@@ -138,45 +165,48 @@ export async function getPostsByPostIds(
       };
 
       // Get post author info
-      const authorDoc = await adminDb.collection("users").doc(postData.authorId as string).get();
-      if (authorDoc.exists) {
-        const authorData = authorDoc.data() as any;
+      const authorData = authorsMap[postData.authorId];
+      if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-
-        const followDocId = `${requestingUserId}_${postData.authorId}`;
-        const isFollowing = await adminDb.collection("follows").doc(followDocId).get();
-        postData.isAuthorFollowed = isFollowing.exists;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
-      // Fetch comments subcollection
-      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").get();
+      // Fetch only first 10 comments to reduce read operations
+      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").limit(10).get();
       const comments = commentsSnapshot.docs.map(commentDoc => ({
         id: commentDoc.id,
         ...commentDoc.data()
       }));
 
-      // Get user from comments.authorId in comments subcollection
+      // Get user from comments.authorId in comments subcollection using cache
       const commentsWithUser = await Promise.all(
         comments.map(async comment => {
-          const userDoc = await adminDb.collection("users").doc((comment as any).authorId).get();
+          const userDoc = await getUserDataCached((comment as any).authorId);
 
           return {
             ...comment,
             authorId: (comment as any).authorId,
-            username: userDoc.exists ? (userDoc.data() as any).username : "Unknown",
-            avatarUrl: userDoc.exists ? (userDoc.data() as any).avatarUrl : null
+            username: userDoc ? userDoc.username : "Unknown",
+            avatarUrl: userDoc ? userDoc.avatarUrl : null
           };
         })
       );
 
+      // Get total comment count efficiently
+      const commentCountSnapshot = await doc.ref.collection("comments").count().get();
+      const totalCommentCount = commentCountSnapshot.data().count;
+
       return {
         ...postData,
-        commentCount: comments.length,
-        comments: commentsWithUser
+        commentCount: totalCommentCount,
+        comments: commentsWithUser,
+        hasMoreComments: totalCommentCount > 10
       };
     })
   ) as any[];
@@ -226,6 +256,18 @@ export async function getExplorePostsByScore(
 
   const querySnapshot = await query.get();
 
+  // Extract unique author IDs for batch fetch
+  const authorIds = Array.from(new Set(querySnapshot.docs.map(doc => doc.data().authorId).filter(Boolean)));
+  
+  // Fetch all post authors in a single batch read directly from Firestore
+  const authorsMap: Record<string, any> = {};
+  if (authorIds.length > 0) {
+    const authorsSnapshot = await adminDb.collection("users").where(admin.firestore.FieldPath.documentId(), "in", authorIds).get();
+    authorsSnapshot.docs.forEach(doc => {
+      authorsMap[doc.id] = doc.data();
+    });
+  }
+
   const posts = await Promise.all(
     querySnapshot.docs.map(async doc => {
       const postData: any = {
@@ -234,45 +276,48 @@ export async function getExplorePostsByScore(
       };
 
       // Get post author info
-      const authorDoc = await adminDb.collection("users").doc(postData.authorId as string).get();
-      if (authorDoc.exists) {
-        const authorData = authorDoc.data() as any;
+      const authorData = authorsMap[postData.authorId];
+      if (authorData) {
         postData.authorUsername = authorData.username;
         postData.authorAvatarUrl = authorData.avatarUrl;
-
-        const followDocId = `${requestingUserId}_${postData.authorId}`;
-        const isFollowing = await adminDb.collection("follows").doc(followDocId).get();
-        postData.isAuthorFollowed = isFollowing.exists;
+        // Check following status from author's followers array
+        postData.isAuthorFollowed = requestingUserId ? (authorData.followers?.includes(requestingUserId) || false) : false;
       } else {
         postData.authorUsername = "Unknown";
         postData.authorAvatarUrl = null;
+        postData.isAuthorFollowed = false;
       }
 
-      // Fetch comments subcollection
-      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").get();
+      // Fetch only first 10 comments to reduce read operations
+      const commentsSnapshot = await doc.ref.collection("comments").orderBy("createdAt", "desc").limit(10).get();
       const comments = commentsSnapshot.docs.map(commentDoc => ({
         id: commentDoc.id,
         ...commentDoc.data()
       }));
 
-      // Get user from comments.authorId in comments subcollection
+      // Get user from comments.authorId in comments subcollection using cache
       const commentsWithUser = await Promise.all(
         comments.map(async comment => {
-          const userDoc = await adminDb.collection("users").doc((comment as any).authorId).get();
+          const userDoc = await getUserDataCached((comment as any).authorId);
 
           return {
             ...comment,
             authorId: (comment as any).authorId,
-            username: userDoc.exists ? (userDoc.data() as any).username : "Unknown",
-            avatarUrl: userDoc.exists ? (userDoc.data() as any).avatarUrl : null
+            username: userDoc ? userDoc.username : "Unknown",
+            avatarUrl: userDoc ? userDoc.avatarUrl : null
           };
         })
       );
 
+      // Get total comment count efficiently
+      const commentCountSnapshot = await doc.ref.collection("comments").count().get();
+      const totalCommentCount = commentCountSnapshot.data().count;
+
       return {
         ...postData,
-        commentCount: comments.length,
-        comments: commentsWithUser
+        commentCount: totalCommentCount,
+        comments: commentsWithUser,
+        hasMoreComments: totalCommentCount > 10
       };
     })
   ) as any[];

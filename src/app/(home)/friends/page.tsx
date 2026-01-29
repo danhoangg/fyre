@@ -53,20 +53,22 @@ export default function Page() {
         setLoading(true);
         if (user.friends && user.friends.length > 0) {
             getUsersData(user.friends)
-                .then(data => setFriendsData(data))
+                .then(data => {
+                    setFriendsData(data);
+                    // Set following state from API response
+                    const followingMap: { [key: string]: boolean } = {};
+                    data.forEach((friend: any) => {
+                        followingMap[friend.uid] = friend.isFollowing || false;
+                    });
+                    setFollowing(followingMap);
+                })
                 .catch(error => setError(error instanceof Error ? error.message : "Failed to fetch friends data"));
+        } else {
+            setLoading(false);
         }
 
-        setFollowing(prev => {
-            const newFollowing: { [key: string]: boolean } = { ...prev };
-            user.following?.forEach((uid: string) => {
-                newFollowing[uid] = true;
-            });
-            return newFollowing;
-        });
-
         setLoading(false);
-    }, [user.friends, user.following]);
+    }, [user.friends]);
 
     useEffect(() => {
         const delaySearch = setTimeout(async () => {
@@ -192,7 +194,7 @@ export default function Page() {
                                     {loading &&
                                         <LoadingComponent text="Loading friends..." />
                                     }
-                                    {!loading && friendsData.length === 0 && <p>You have no friends :(</p>}
+                                    {!loading && friendsData.length === 0 && <p>You have no friends ☹️</p>}
                                     {friendsData.map(friend => (
                                         <Item
                                             variant="outline"

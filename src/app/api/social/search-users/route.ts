@@ -1,5 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin"
 import { getCurrentUser } from "@/lib/session"
+import { isFollowingCached } from "@/lib/cache"
 
 function serializeFirestoreValue(value: any): any {
     if (value && typeof value.toDate === "function") return value.toDate().toISOString();
@@ -26,13 +27,13 @@ export async function POST(req: Request) {
         }
 
         const searchQuery = query.toLowerCase().trim();
-        
-        // If query is empty, return all users (excluding current user)
-        let usersQuery = adminDb.collection("users");
-        
-        const userDocs = await usersQuery.limit(10).get();
-        
-        let userData = userDocs.docs.map(doc => {
+
+        let userData: Array<Record<string, any>> = [];
+
+        // Fetch all users and filter client-side for substring matching
+        const userDocs = await adminDb.collection("users").get();
+
+        userData = userDocs.docs.map(doc => {
             const data = doc.data();
             const plainData = serializeFirestoreValue(data);
             return {
@@ -41,18 +42,29 @@ export async function POST(req: Request) {
             };
         });
 
-        // Filter by username if search query exists
+        // Filter by username or email if search query exists
         if (searchQuery) {
-            userData = userData.filter(user => 
+            userData = userData.filter(user =>
                 user.username?.toLowerCase().includes(searchQuery) ||
                 user.email?.toLowerCase().includes(searchQuery)
             );
         }
 
+        // Limit results to 10
+        userData = userData.slice(0, 10);
+
         // Exclude current user from results
         userData = userData.filter(user => user.uid !== currentUser.uid);
 
-        return new Response(JSON.stringify({ users: userData }), { status: 200 });
+        // Add follow status for each user by checking their followers array
+        const userDataWithFollowStatus = userData.map((user) => {
+            return {
+                ...user,
+                isFollowing: user.followers?.includes(currentUser.uid) || false
+            };
+        });
+
+        return new Response(JSON.stringify({ users: userDataWithFollowStatus }), { status: 200 });
     } catch (error) {
         console.error("Search users error:", error);
         return new Response(

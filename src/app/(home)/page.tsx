@@ -51,7 +51,7 @@ export default function HomePage() {
             setLoading(true);
             try {
                 // Load initial posts
-                const postsData = await loadHomePosts(user.uid, undefined, 10);
+                const postsData = await loadHomePosts(user.uid, undefined, 5);
                 setPosts(postsData.posts);
                 setHasMore(postsData.hasMore);
             } catch (error) {
@@ -88,7 +88,7 @@ export default function HomePage() {
         setLoadingMore(true);
         try {
             const lastPostId: string | undefined = posts[posts.length - 1]?.id;
-            const data = await loadHomePosts(user.uid, lastPostId, 10);
+            const data = await loadHomePosts(user.uid, lastPostId, 5);
 
             setPosts((prev: Post[]) => [...prev, ...data.posts]);
             setHasMore(data.hasMore);
@@ -134,6 +134,9 @@ export default function HomePage() {
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
                       <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>
+                        {posts.length === 0 ? (
+                            <p className="text-center text-gray-500">You either have no friends or your friends haven't posted anything yet 😢 (go check the explore page)</p>
+                        ) : (
                         <div className="space-y-6">
                             <PostsGrid
                                 posts={posts}
@@ -159,6 +162,7 @@ export default function HomePage() {
                                 </div>
                             )}
                         </div>
+                        )}
                     </div>
                 </div>
             </SidebarInset>

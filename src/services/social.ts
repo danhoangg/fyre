@@ -108,6 +108,18 @@ export const searchUsers = async (query: string) => {
     return result.users;
 }
 
+export const deleteAccount = async () => {
+    const res = await fetch("/api/social/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+    });
+
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete account");
+    }
+}
+
 export const editProfile = async (username: string, description: string, currentAvatarUrl: string, currentUsername: string, avatarFile?: File) => {
     let newAvatarUrl = currentAvatarUrl;
     let uploadedAvatarUrl: string | null = null;

@@ -19,15 +19,14 @@ export async function GET(req: Request) {
         }
 
         // Get friends from the user's friends subcollection
-        const friendsSnapshot = await adminDb.collection("users").doc(uid).collection("friends").get()
-        const friends = friendsSnapshot.docs.map(doc => doc.id)
+        const followingSnapshot = await adminDb.collection("users").doc(uid).collection("following").get()
+        const following = followingSnapshot.docs.map(doc => doc.id)
 
-        if (friends.length === 0) {
+        if (following.length === 0) {
             return new Response(JSON.stringify({ posts: [], hasMore: false }), { status: 200 })
         }
 
-        const results = await getPostsByUserIds([uid, ...friends], limit, lastPostId, user.uid)
-
+        const results = await getPostsByUserIds([uid, ...following], limit, lastPostId, user.uid)
         return new Response(JSON.stringify(results), { status: 200 })
     } catch (error) {
         console.error("Get home posts error:", error)

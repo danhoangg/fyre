@@ -4,16 +4,29 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useUser } from "@/lib/user-context";
 import { Button } from "@/components/ui/button";
-import { CirclePlus, Check } from "lucide-react";
+import { CirclePlus, Check, UserPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
-import { toggleFollow, editProfile } from "@/services/social";
+import { toggleFollow, editProfile, deleteAccount } from "@/services/social";
+import { logOut } from "@/services/auth";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { EditProfileDialog } from "@/components/edit-profile-dialog";
 import { loadUserPosts, getPost } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Spinner } from "@/components/ui/spinner";
 
 interface Post {
   id: string;
@@ -28,9 +41,12 @@ interface SidebarUser {
 }
 
 export default function AccountPage() {
+  const router = useRouter();
   const params = useParams();
-  const username = decodeURIComponent(params.username as string);
+  const usernameParam = params?.username;
+  const username = typeof usernameParam === "string" ? decodeURIComponent(usernameParam) : "";
   const user = useUser();
+  const ownerViewing = user.username === username;
 
   const [accountUser, setAccountUser] = useState<any>(null);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -48,9 +64,60 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
 
   const observerTarget = useRef<HTMLDivElement>(null);
+
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+
+      // Logout and redirect
+      await logOut();
+      router.push("/login");
+    } catch (error) {
+      console.error("Failed to delete account:", error);
+      setError(error instanceof Error ? error.message : "An error occurred");
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
+  const fetchAccountData = async () => {
+    if (!username || username === "undefined") return;
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/social/get-users?username=${encodeURIComponent(username)}`);
+      if (!response.ok) {
+        throw new Error('User not found');
+      }
+
+      const userData = await response.json();
+      setAccountUser(userData);
+      setDisplayUsername(userData.username);
+      setDescription(userData.description || "");
+      setAvatarUrl(userData.avatarUrl || "/default-avatar.png");
+      setFollowersCount(userData.followersCount || 0);
+      setFollowingCount(userData.followingCount || 0);
+      setFollowing(userData.isFollowing || false);
+
+      // Load initial posts
+      const postsData = await loadUserPosts(userData.uid, undefined, 5);
+      setPosts(postsData.posts);
+      setHasMore(postsData.hasMore);
+    } catch (error) {
+      console.error("Failed to load account:", error);
+      setError("Failed to load account data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     setMounted(true);
@@ -58,37 +125,6 @@ export default function AccountPage() {
 
   // Initial data fetch
   useEffect(() => {
-    const fetchAccountData = async () => {
-      if (!username) return;
-
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/social/get-users?username=${encodeURIComponent(username)}`);
-        if (!response.ok) {
-          throw new Error('User not found');
-        }
-
-        const userData = await response.json();
-        setAccountUser(userData);
-        setDisplayUsername(userData.username);
-        setDescription(userData.description || "");
-        setAvatarUrl(userData.avatarUrl || "/default-avatar.png");
-        setFollowersCount(userData.followersCount || 0);
-        setFollowingCount(userData.followingCount || 0);
-        setFollowing(userData.isFollowing || false);
-
-        // Load initial posts
-        const postsData = await loadUserPosts(userData.uid, undefined, 5);
-        setPosts(postsData.posts);
-        setHasMore(postsData.hasMore);
-      } catch (error) {
-        console.error("Failed to load account:", error);
-        setError("Failed to load account data");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchAccountData();
   }, [username]);
 
@@ -186,8 +222,6 @@ export default function AccountPage() {
     uid: user.uid || "",
   };
 
-  const ownerViewing: boolean = accountUser?.uid === user.uid;
-
   if (!mounted) {
     return null;
   }
@@ -241,9 +275,24 @@ export default function AccountPage() {
                     className="size-16 md:size-20 rounded-full object-cover shrink-0"
                   />
                   {ownerViewing && (
-                    <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
-                      <span>Edit Profile</span>
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>
+                          <UserPen />
+                          Edit Profile
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+                          <Trash2 />
+                          Delete Account
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   )}
                   {!ownerViewing && !following && (
                     <Button variant="secondary" onClick={handleFollowToggle}>
@@ -328,6 +377,37 @@ export default function AccountPage() {
         currentAvatarUrl={avatarUrl}
         onSave={handleSaveProfile}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account, posts,
+              comments, and remove all your data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteAccount();
+              }}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Spinner /> <span> Deleting...</span>
+                </>
+              ) : (
+                "Delete Account"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   );
 }

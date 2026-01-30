@@ -1,6 +1,7 @@
 import { auth } from "firebase-functions/v1";
 import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
+import { normalizeUsername } from "../utils/normalizeUsername";
 
 /**
  * Automatically creates a Firestore user document when a new Firebase Auth user is created.
@@ -17,8 +18,10 @@ export const syncUserRecord = auth.user().onCreate(async (user) => {
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
+      const username = displayName || email?.split("@")[0] || `user_${uid.slice(0, 5)}`;
       await userRef.set({
-        username: displayName || email?.split("@")[0] || `user_${uid.slice(0, 5)}`,
+        username,
+        normalizedUsername: normalizeUsername(username),
         email: email || "",
         avatarURL: photoURL || null,
         description: "",

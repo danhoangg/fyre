@@ -1,8 +1,10 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
+import { normalizeUsername } from "../utils/normalizeUsername";
 
 /**
  * Checks if a username is already taken.
+ * Compares against normalized usernames for case-insensitive uniqueness.
  * Callable from the client SDK.
  */
 export const checkUsername = onCall(async (request) => {
@@ -13,11 +15,12 @@ export const checkUsername = onCall(async (request) => {
   }
 
   const db = getFirestore();
+  const normalizedUsername = normalizeUsername(username);
   
   try {
     const querySnapshot = await db
       .collection("users")
-      .where("username", "==", username)
+      .where("normalizedUsername", "==", normalizedUsername)
       .limit(1)
       .get();
 

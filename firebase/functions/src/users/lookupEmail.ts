@@ -1,8 +1,10 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { getFirestore } from "firebase-admin/firestore";
+import { normalizeUsername } from "../utils/normalizeUsername";
 
 /**
  * Looks up the email associated with a given username.
+ * Uses normalized username for case-insensitive lookup.
  * Callable from the client SDK.
  */
 export const lookupEmail = onCall(async (request) => {
@@ -17,11 +19,12 @@ export const lookupEmail = onCall(async (request) => {
         }
 
         const db = getFirestore();
+        const normalizedUsername = normalizeUsername(username);
 
-        // Query Firestore for user by username
+        // Query Firestore for user by normalized username
         const querySnapshot = await db
             .collection("users")
-            .where("username", "==", username)
+            .where("normalizedUsername", "==", normalizedUsername)
             .limit(1)
             .get()
 

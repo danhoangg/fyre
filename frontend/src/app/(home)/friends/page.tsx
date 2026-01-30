@@ -51,7 +51,7 @@ export default function Page() {
 
     useEffect(() => {
         setLoading(true);
-        getFriendsData()
+        getFriendsData(user.uid)
             .then(data => {
                 setFriendsData(data);
                 // Set following state from API response

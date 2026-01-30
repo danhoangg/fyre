@@ -19,6 +19,7 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { signOut } from "firebase/auth";
+import { normalizeUsername } from "@/lib/utils";
 
 // Callable function references
 const checkUsernameCallable = httpsCallable(functions, "checkUsername");
@@ -223,7 +224,8 @@ export const toggleFollow = async (followUid: string) => {
 
 export const getUserByUsername = async (username: string) => {
     try {
-        const q = query(collection(db, "users"), where("username", "==", username), limit(1));
+        const normalizedUsername = normalizeUsername(username);
+        const q = query(collection(db, "users"), where("normalizedUsername", "==", normalizedUsername), limit(1));
         const querySnapshot = await getDocs(q);
         
         if (querySnapshot.empty) {
@@ -316,10 +318,11 @@ export const getFriendsData = async (uid?: string) => {
 
 export const searchUsers = async (searchQuery: string) => {
     try {
+        const normalizedQuery = normalizeUsername(searchQuery);
         const q = query(
             collection(db, "users"),
-            where("username", ">=", searchQuery),
-            where("username", "<=", searchQuery + '\uf8ff'),
+            where("normalizedUsername", ">=", normalizedQuery),
+            where("normalizedUsername", "<=", normalizedQuery + '\uf8ff'),
             limit(10)
         );
         const querySnapshot = await getDocs(q);
@@ -383,6 +386,7 @@ export const editProfile = async (username: string, description: string, current
 
         await updateDoc(doc(db, "users", user.uid), {
             username,
+            normalizedUsername: normalizeUsername(username),
             description,
             avatarUrl: newAvatarUrl
         });

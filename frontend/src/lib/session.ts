@@ -1,8 +1,18 @@
 import { cookies } from "next/headers"
 import { adminAuth, adminDb } from "@/lib/firebase-admin"
 
+// Sessions created before this timestamp are considered invalid and will be cleared.
+// Update this date whenever you need to force all users to re-authenticate.
+const SESSION_MINIMUM_ISSUED_AT = new Date("2026-01-30T21:34:00Z").getTime() / 1000
+
+async function clearSessionCookie() {
+  const cookieStore = await cookies()
+  cookieStore.delete("session")
+}
+
 export async function getCurrentUser(): Promise<Record<string, any> | null> {
-  const session = (await cookies()).get("session")?.value
+  const cookieStore = await cookies()
+  const session = cookieStore.get("session")?.value
   if (!session) return null
 
   try {
@@ -12,8 +22,21 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
       console.error("Session verification failed:", err.message)
       return null
     })
+
+    if (!decoded) {
+      await clearSessionCookie()
+      return null
+    }
+
+    // Check if the session was issued before the minimum required date
+    // This forces users with old session cookies to re-authenticate
+    const iat = (decoded as { iat?: number }).iat
+    if (iat && iat < SESSION_MINIMUM_ISSUED_AT) {
+      console.log("Session cookie is too old, forcing re-authentication")
+      await clearSessionCookie()
+      return null
+    }
     
-    if (!decoded) return null
     const uid = (decoded as { uid?: string }).uid
     if (!uid) return null
 

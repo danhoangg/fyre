@@ -16,6 +16,9 @@ const createSessionCallable = httpsCallable(functions, "createSession");
 const revokeSessionCallable = httpsCallable(functions, "revokeSession");
 
 export const signUp = async (username: string, email: string, password: string) => {
+    // Clear any existing session cookie before attempting to sign up
+    destroyCookie(null, "session", { path: "/" });
+    
     // Check if username is already taken via Cloud function
     const { data: { available } } = await checkUsernameCallable({ username }) as { data: { available: boolean } };
     
@@ -44,6 +47,9 @@ export const signUp = async (username: string, email: string, password: string) 
 }
 
 export const signIn = async (usernameOrEmail: string, password: string) => {
+    // Clear any existing session cookie before attempting to sign in
+    destroyCookie(null, "session", { path: "/" });
+    
     let email = usernameOrEmail
 
     // Check if input is a username (doesn't contain @)
@@ -75,6 +81,9 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
 }
 
 export const signInWithGoogle = async () => {
+    // Clear any existing session cookie before attempting to sign in
+    destroyCookie(null, "session", { path: "/" });
+    
     const provider = new GoogleAuthProvider();
     // Sign in. The Firestore document will be created automatically 
     // by the syncUserRecord Auth trigger if it doesn't exist.

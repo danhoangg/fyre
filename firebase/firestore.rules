@@ -1,0 +1,107 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- USERS ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow update: if isOwner(userId);
+      
+      // Followers subcollection - anyone can read, only the follower can write their own doc
+      match /followers/{followerId} { 
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.auth.uid == followerId;
+        allow delete: if isOwner(followerId);
+      }
+      
+      // Following subcollection - anyone can read, only the user can manage their own following
+      match /following/{followingId} { 
+        allow read: if isSignedIn();
+        allow create: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+      
+      match /friends/{friendId} { allow read: if isOwner(userId); }
+      match /savedPosts/{saveId} { allow read: if isOwner(userId); }
+      
+      // User's post likes - only owner can read their own likes
+      match /postLikes/{postId} { allow read: if isOwner(userId); }
+      
+      // User's comment likes - only owner can read their own comment likes
+      match /commentLikes/{commentId} { allow read: if isOwner(userId); }
+      
+      // User's comments - only owner can read their own comments
+      match /comments/{commentId} { allow read: if isOwner(userId); }
+    }
+
+    // --- POSTS ---
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+      allow update: if isOwner(resource.data.authorId) && request.resource.data.authorId == resource.data.authorId;
+      allow delete: if isOwner(resource.data.authorId);
+
+      // Post likes subcollection
+      match /likes/{uid} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow delete: if isOwner(uid);
+      }
+
+      // Post saves subcollection
+      match /saves/{uid} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn() && request.auth.uid == uid;
+        allow delete: if isOwner(uid);
+      }
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.authorId;
+        allow delete: if isOwner(resource.data.authorId) || isOwner(get(/databases/$(database)/documents/posts/$(postId)).data.authorId);
+        allow update: if isOwner(resource.data.authorId);
+
+        // Comment likes subcollection
+        match /likes/{uid} {
+          allow read: if isSignedIn();
+          allow create: if isSignedIn() && request.auth.uid == uid;
+          allow delete: if isOwner(uid);
+        }
+      }
+    }
+
+    // --- INTERACTIONS (legacy - can be removed after migration) ---
+    match /postLikes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      allow delete: if isOwner(resource.data.uid);
+    }
+
+    match /postSaves/{saveId} {
+      allow read: if isOwner(request.auth.uid);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      allow delete: if isOwner(resource.data.uid);
+    }
+
+    match /commentLikes/{likeId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+      allow delete: if isOwner(resource.data.uid);
+    }
+
+    // --- FOLLOWS (legacy - can be removed after migration) ---
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.fromUid;
+      allow delete: if isOwner(resource.data.fromUid);
+    }
+  }
+}

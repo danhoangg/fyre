@@ -23,13 +23,28 @@ export function normalizeUsername(username: string): string {
     .trim(); // Remove leading/trailing whitespace
 }
 
-export function formatTimeAgo(createdAt: { _seconds: number; _nanoseconds: number } | null | undefined): string {
-  if (!createdAt || !createdAt._seconds) {
+export function formatTimeAgo(createdAt: { _seconds: number; _nanoseconds: number } | string | null | undefined): string {
+  if (!createdAt) {
+    return 'Unknown date';
+  }
+
+  let createdDate: Date;
+
+  if (typeof createdAt === 'string') {
+    // Handle ISO string format
+    createdDate = new Date(createdAt);
+  } else if (createdAt._seconds) {
+    // Handle Firestore Timestamp serialized format
+    createdDate = new Date(createdAt._seconds * 1000);
+  } else {
+    return 'Unknown date';
+  }
+
+  if (isNaN(createdDate.getTime())) {
     return 'Unknown date';
   }
 
   const now = Date.now();
-  const createdDate = new Date(createdAt._seconds * 1000);
   const diffInMs = now - createdDate.getTime();
   const diffInSeconds = Math.floor(diffInMs / 1000);
   const diffInMinutes = Math.floor(diffInSeconds / 60);

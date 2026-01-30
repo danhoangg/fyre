@@ -14,7 +14,9 @@ import {
     Send,
     CirclePlus,
     Check,
-    MoreHorizontal
+    MoreHorizontal,
+    ArrowUpRight,
+    UserRoundX
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,7 +39,7 @@ import { Separator } from "@radix-ui/react-separator";
 import { Item } from "@/components/ui/item"
 import { formatTimeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { useRouter } from "next/navigation";
 
 interface PostsGridProps {
@@ -65,7 +67,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
     const [optimisticComments, setOptimisticComments] = useState<{ [key: string]: any[] }>({});
     const [deletingComments, setDeletingComments] = useState<{ [key: string]: boolean }>({});
     const [followedAuthors, setFollowedAuthors] = useState<{ [key: string]: boolean }>({});
-    
+
     // Comment pagination state
     const [allPostComments, setAllPostComments] = useState<{ [key: string]: any[] }>({});
     const [commentPagination, setCommentPagination] = useState<{ [key: string]: { hasMore: boolean; lastCommentId: string | null; loading: boolean } }>({});
@@ -253,11 +255,11 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             const lastLoadedCommentId = currentComments.length > 0 ? currentComments[currentComments.length - 1].id : commentPagination[postId]?.lastCommentId || undefined;
 
             const data = await getComments(postId, lastLoadedCommentId, 10);
-            
+
             // Deduplicate comments - only add if they don't already exist
             const existingCommentIds = new Set((allPostComments[postId] || []).map((c: any) => c.id));
             const newUniqueComments = data.comments.filter((c: any) => !existingCommentIds.has(c.id));
-            
+
             setAllPostComments(prev => ({
                 ...prev,
                 [postId]: [...(prev[postId] || []), ...newUniqueComments]
@@ -266,7 +268,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             // Update liked and like count status for new comments from API response
             const newLikedPosts: { [key: string]: boolean } = {};
             const newLikeCounts: { [key: string]: number } = {};
-            
+
             newUniqueComments.forEach((comment: any) => {
                 newLikedPosts[comment.id] = comment.isLiked || false;
                 newLikeCounts[comment.id] = comment.likeCount || 0;
@@ -481,6 +483,11 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                 </Button>
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent>
+                                                <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}`)}>
+                                                    <ArrowUpRight />
+                                                    Go to Post
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
                                                 <DropdownMenuItem variant="destructive" onClick={(e) => handleDeletePost(post.id, e)}>
                                                     <Trash2 />
                                                     Delete
@@ -489,17 +496,33 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                         </DropdownMenu>
                                     )}
                                 </div>
-                                {!isOwner && !followedAuthors[post.authorId] && showFollowing && (
-                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(post.authorId, e)}>
-                                        <CirclePlus className="h-4 w-4" />
-                                        <span>Follow</span>
-                                    </Button>
-                                )}
-                                {!isOwner && followedAuthors[post.authorId] && showFollowing && (
-                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(post.authorId, e)}>
-                                        <Check className="h-4 w-4" />
-                                        <span>Following</span>
-                                    </Button>
+
+                                {!isOwner && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="icon" variant="ghost">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={() => router.push(`/posts/${post.id}`)}>
+                                                <ArrowUpRight />
+                                                Go to Post
+                                            </DropdownMenuItem>
+                                            {!followedAuthors[post.authorId] && showFollowing && (
+                                                <DropdownMenuItem onClick={(e) => handleFollowToggle(post.authorId, e)}>
+                                                    <CirclePlus className="h-4 w-4" />
+                                                    <span>Follow User</span>
+                                                </DropdownMenuItem>
+                                            )}
+                                            {followedAuthors[post.authorId] && showFollowing && (
+                                                <DropdownMenuItem onClick={(e) => handleFollowToggle(post.authorId, e)}>
+                                                    <UserRoundX className="h-4 w-4" />
+                                                    <span>Unfollow User</span>
+                                                </DropdownMenuItem>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 )}
                             </div>
 
@@ -669,7 +692,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                 ...(allPostComments[post.id] || [])
                                             ];
                                             return allComments.length > 0 && (
-                                                <div 
+                                                <div
                                                     ref={(el) => {
                                                         if (el) commentScrollRefs.current[post.id] = el;
                                                     }}
@@ -725,14 +748,14 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                             </div>
                                                         </div>
                                                     ))}
-                                                    
+
                                                     {/* Loading indicator for more comments */}
                                                     {commentPagination[post.id]?.loading && (
                                                         <div className="flex justify-center py-2">
                                                             <Spinner className="h-4 w-4" />
                                                         </div>
                                                     )}
-                                                    
+
                                                     {/* "Load more" message when at end */}
                                                     {!commentPagination[post.id]?.hasMore && allComments.length > 4 && (
                                                         <div className="text-center text-xs text-muted-foreground py-2">

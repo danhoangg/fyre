@@ -15,3 +15,6 @@ setGlobalOptions({
 
 export * from "./analytics/recalculateScores";
 export * from "./users/checkUsername";
+export * from "./users/lookupEmail";
+export * from "./users/syncUserRecord";
+export * from "./auth/session";

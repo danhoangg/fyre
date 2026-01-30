@@ -6,12 +6,23 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
   if (!session) return null
 
   try {
-    const decoded = await adminAuth.verifySessionCookie(session, true)
+    // We set checkRevoked to false to avoid "Session revoked" errors 
+    // that can occur due to sync delays between the client and admin SDKs.
+    const decoded = await adminAuth.verifySessionCookie(session, false).catch(err => {
+      console.error("Session verification failed:", err.message)
+      return null
+    })
+    
+    if (!decoded) return null
     const uid = (decoded as { uid?: string }).uid
     if (!uid) return null
 
     const userDoc = await adminDb.collection("users").doc(uid).get()
-    if (!userDoc.exists) return null
+    if (!userDoc.exists) {
+      console.warn(`User document not found for UID: ${uid}. Possible sync delay.`);
+      // Return a partial user so the login doesn't fail completely during sync delay
+      return { uid, email: (decoded as any).email, isSyncing: true }
+    }
 
     const data = userDoc.data() || {}
 

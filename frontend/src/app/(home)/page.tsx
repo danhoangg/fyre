@@ -3,15 +3,11 @@
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useUser } from "@/lib/user-context";
-import { Button } from "@/components/ui/button";
-import { CirclePlus, Check } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
-import { toggleFollow, editProfile } from "@/services/social";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
-import { EditProfileDialog } from "@/components/edit-profile-dialog";
-import { loadUserPosts, getPost, loadSavedPosts, loadHomePosts } from "@/services/posts";
+import { getPost, loadHomePosts } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
 
@@ -63,7 +59,7 @@ export default function HomePage() {
         };
 
         fetchHomeData();
-    }, []);
+    }, [user.uid, params]);
 
     useEffect(() => {
         const observer: IntersectionObserver = new IntersectionObserver(

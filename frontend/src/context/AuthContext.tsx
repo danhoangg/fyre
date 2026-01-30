@@ -1,10 +1,11 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { DecodedIdToken } from "firebase-admin/auth"
+import { onAuthStateChanged, User } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 
 type AuthContextType = {
-  user: DecodedIdToken | null
+  user: User | null
   email: string | null
   loading: boolean
 }
@@ -16,37 +17,24 @@ const AuthContext = createContext<AuthContextType>({
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<DecodedIdToken | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchUser = async () => {
-      setLoading(true)
-      try {
-        const res = await fetch('/api/session', { cache: 'no-store' })
-        if (res.ok) {
-          const data = await res.json()
-          const currentUser = data.user as DecodedIdToken | null
-          if (currentUser) {
-            setUser(currentUser)
-            setEmail(currentUser.email || null)
-          } else {
-            setUser(null)
-            setEmail(null)
-          }
-        } else {
-          setUser(null)
-          setEmail(null)
-        }
-      } catch (e) {
+    // Standard Firebase Auth listener
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser)
+        setEmail(currentUser.email || null)
+      } else {
         setUser(null)
         setEmail(null)
       }
       setLoading(false)
-    }
+    })
 
-    fetchUser()
+    return () => unsubscribe()
   }, [])
 
   return (

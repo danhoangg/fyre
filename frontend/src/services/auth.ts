@@ -5,39 +5,42 @@ import {
     GoogleAuthProvider,
     signInWithPopup
 } from "firebase/auth"
-import { auth, db } from "@/lib/firebase"
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore"
+import { auth, functions } from "@/lib/firebase"
+import { httpsCallable } from "firebase/functions"
+import { setCookie, destroyCookie } from "nookies"
+
+// Callable function references
+const checkUsernameCallable = httpsCallable(functions, "checkUsername");
+const lookupEmailCallable = httpsCallable(functions, "lookupEmail");
+const createSessionCallable = httpsCallable(functions, "createSession");
+const revokeSessionCallable = httpsCallable(functions, "revokeSession");
 
 export const signUp = async (username: string, email: string, password: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-
-    // Check if username is already taken
-    const res = await fetch("/api/auth/check-username", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username }),
-    });
-    if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Username is already taken");
+    // Check if username is already taken via Cloud function
+    const { data: { available } } = await checkUsernameCallable({ username }) as { data: { available: boolean } };
+    
+    if (!available) {
+        throw new Error("Username is already taken");
     }
 
-    // Create a user document in Firestore
-    await setDoc(doc(db, "users", cred.user.uid), {
-        username,
-        email,
-        createdAt: serverTimestamp(),
-        avatarURL: null,
-        description: ""
-    });
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Create session cookie
+    // Create session cookie via serverless Cloud Function
     const idToken = await cred.user.getIdToken()
-    await fetch("/api/session/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-    })
+    try {
+        const result = await createSessionCallable({ idToken });
+        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
+        
+        setCookie(null, "session", sessionCookie, {
+            maxAge: maxAge,
+            path: "/",
+            secure: true, // Always true if deployed (usually HTTPS)
+            sameSite: "lax",
+        });
+    } catch (error) {
+        console.error("Failed to create session in Cloud Function:", error);
+        throw new Error("Login failed: Could not establish session.");
+    }
 }
 
 export const signIn = async (usernameOrEmail: string, password: string) => {
@@ -45,19 +48,8 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
 
     // Check if input is a username (doesn't contain @)
     if (!usernameOrEmail.includes("@")) {
-        // Call API to look up email by username
-        const lookupRes = await fetch("/api/auth/lookup-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username: usernameOrEmail }),
-        })
-
-        if (!lookupRes.ok) {
-            const data = await lookupRes.json()
-            throw new Error(data.error || "Username not found")
-        }
-
-        const { email: foundEmail } = await lookupRes.json()
+        // Call Cloud Function to look up email by username
+        const { data: { email: foundEmail } } = await lookupEmailCallable({ username: usernameOrEmail }) as { data: { email: string } };
         email = foundEmail
     }
 
@@ -66,48 +58,53 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
 
     // Create session cookie
     const idToken = await cred.user.getIdToken()
-    const sessionRes = await fetch("/api/session/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-        credentials: "include",
-    })
-
-    if (!sessionRes.ok) {
-        throw new Error("Failed to create session")
+    try {
+        const result = await createSessionCallable({ idToken });
+        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
+        
+        setCookie(null, "session", sessionCookie, {
+            maxAge: maxAge,
+            path: "/",
+            secure: true,
+            sameSite: "lax",
+        });
+    } catch (error) {
+        console.error("Failed to create session in signIn:", error);
+        throw new Error("Login failed during session exchange.");
     }
 }
 
 export const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    // Sign in. The Firestore document will be created automatically 
+    // by the syncUserRecord Auth trigger if it doesn't exist.
     const cred = await signInWithPopup(auth, provider);
-
-    // Check if user document exists, if not create one
-    const userDocRef = doc(db, "users", cred.user.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
-        await setDoc(userDocRef, {
-            username: cred.user.displayName,
-            email: cred.user.email,
-            createdAt: serverTimestamp(),
-            avatarURL: cred.user.photoURL || null,
-            description: ""
-        });
-    }
 
     // Create session cookie
     const idToken = await cred.user.getIdToken()
-    await fetch("/api/session/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-    })
+    try {
+        const result = await createSessionCallable({ idToken });
+        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
+        
+        setCookie(null, "session", sessionCookie, {
+            maxAge: maxAge,
+            path: "/",
+            secure: true,
+            sameSite: "lax",
+        });
+    } catch (error) {
+        console.error("Failed to create session in Google Login:", error);
+        throw new Error("Login failed during Google session exchange.");
+    }
 }
 
-export const logOut = () => {
-    signOut(auth)
-    return fetch("/api/session/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-    })
+export const logOut = async () => {
+    try {
+        await revokeSessionCallable();
+    } catch (error) {
+        console.error("Error revoking session:", error);
+    }
+    
+    await signOut(auth);
+    destroyCookie(null, "session", { path: "/" });
 }

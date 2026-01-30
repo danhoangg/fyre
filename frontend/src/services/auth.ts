@@ -76,8 +76,6 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
 
 export const signInWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    // Sign in. The Firestore document will be created automatically 
-    // by the syncUserRecord Auth trigger if it doesn't exist.
     const cred = await signInWithPopup(auth, provider);
 
     // Create session cookie

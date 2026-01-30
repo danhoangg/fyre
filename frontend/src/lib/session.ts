@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin"
 
 // Sessions created before this timestamp are considered invalid and will be cleared.
 // Update this date whenever you need to force all users to re-authenticate.
-const SESSION_MINIMUM_ISSUED_AT = new Date("2026-01-30T00:00:00Z").getTime() / 1000
+const SESSION_MINIMUM_ISSUED_AT = new Date("2026-01-30T21:34:00Z").getTime() / 1000
 
 async function clearSessionCookie() {
   const cookieStore = await cookies()
@@ -22,7 +22,7 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
       console.error("Session verification failed:", err.message)
       return null
     })
-    
+
     if (!decoded) {
       await clearSessionCookie()
       return null

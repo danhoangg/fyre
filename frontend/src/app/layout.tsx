@@ -1,6 +1,7 @@
 import { AuthProvider } from "@/context/AuthContext"
 import AnalyticsProvider from "./analytics-provider"
 import "./globals.css"
+import { Toaster } from "sonner"
 
 export default function RootLayout({
   children,
@@ -12,7 +13,8 @@ export default function RootLayout({
       <body>
         <AnalyticsProvider />
         <AuthProvider>{children}</AuthProvider>
+        <Toaster position="top-center" theme="dark" />
       </body>
     </html>
   )
-}
+} 

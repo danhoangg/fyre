@@ -453,7 +453,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                     <div className="flex items-center gap-3 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(post.authorUsername))} >
                                         <Avatar size="lg" className="flex-shrink-0 aspect-square rounded-full overflow-hidden">
                                             <AvatarImage
-                                                src={post.authorAvatarUrl || "default-avatar.png"}
+                                                src={post.authorAvatarUrl || "/default-avatar.png"}
                                                 alt={post.authorUsername || "Author"}
                                                 className="object-cover rounded-full"
                                             />
@@ -632,7 +632,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                         {currentUserId && (
                                             <div className="flex gap-2 items-center">
                                                 <Avatar className="h-8 w-8 flex-shrink-0">
-                                                    <AvatarImage src={user.avatarUrl || 'default-avatar.png'} alt={user.displayName || 'User'} />
+                                                    <AvatarImage src={user.avatarUrl || '/default-avatar.png'} alt={user.displayName || 'User'} />
                                                     <AvatarFallback>
                                                         {user.displayName?.charAt(0).toUpperCase() || 'U'}
                                                     </AvatarFallback>
@@ -679,7 +679,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
                                                     {allComments.map((comment: any, index: number) => (
                                                         <div key={comment.id || index} className={`flex gap-3 ${comment.isOptimistic || deletingComments[comment.id] ? 'opacity-60' : ''}`}>
                                                             <Avatar className="h-8 w-8 flex-shrink-0 cursor-pointer" onClick={(e) => router.push("/account/" + encodeURIComponent(comment.username))}>
-                                                                <AvatarImage src={comment.avatarUrl || "default-avatar.png"} alt={comment.username || "User"} />
+                                                                <AvatarImage src={comment.avatarUrl || "/default-avatar.png"} alt={comment.username || "User"} />
                                                                 <AvatarFallback>
                                                                     {comment.username?.charAt(0).toUpperCase()}
                                                                 </AvatarFallback>

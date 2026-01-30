@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { CirclePlus, Check, UserPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
-import { toggleFollow, editProfile, deleteAccount, getUserByUsername } from "@/services/social";
+import { toggleFollow, editProfile, deleteAccount, getUserByUsername, getFollowersDataPaginated, getFollowingDataPaginated } from "@/services/social";
+import { FollowersDialog } from "@/components/followers-dialog";
 import { logOut } from "@/services/auth";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
@@ -47,7 +48,7 @@ export default function AccountPage() {
   const username = typeof usernameParam === "string" ? decodeURIComponent(usernameParam) : "";
   const { user, setUser } = useUser();
   const [accountUser, setAccountUser] = useState<any>(null);
-  
+
   // Derived state for whether the current user owns this profile
   const ownerViewing = user.uid === accountUser?.uid || (user.username === username && !!username);
 
@@ -67,6 +68,8 @@ export default function AccountPage() {
 
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [followersDialogOpen, setFollowersDialogOpen] = useState<boolean>(false);
+  const [followingDialogOpen, setFollowingDialogOpen] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [mounted, setMounted] = useState<boolean>(false);
 
@@ -181,6 +184,26 @@ export default function AccountPage() {
       setFollowersCount(previousCount);
     }
   }
+
+  const fetchFollowers = async (
+    userId: string,
+    lastUserId?: string,
+    pageLimit?: number
+  ) => {
+    return await getFollowersDataPaginated(userId, lastUserId, pageLimit);
+  };
+
+  const fetchFollowing = async (
+    userId: string,
+    lastUserId?: string,
+    pageLimit?: number
+  ) => {
+    return await getFollowingDataPaginated(userId, lastUserId, pageLimit);
+  };
+
+  const handleToggleFollowInDialog = async (targetUserId: string) => {
+    await toggleFollow(targetUserId);
+  };
 
   const handleSaveProfile = async (data: {
     username: string;
@@ -346,14 +369,20 @@ export default function AccountPage() {
                       post{posts.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  <div>
+                  <button
+                    onClick={() => setFollowersDialogOpen(true)}
+                    className="hover:underline transition-colors"
+                  >
                     <span className="font-semibold">{followersCount}</span>{" "}
                     <span className="text-muted-foreground">follower{followersCount !== 1 ? "s" : ""}</span>
-                  </div>
-                  <div>
+                  </button>
+                  <button
+                    onClick={() => setFollowingDialogOpen(true)}
+                    className="hover:underline transition-colors"
+                  >
                     <span className="font-semibold">{followingCount}</span>{" "}
                     <span className="text-muted-foreground">following</span>
-                  </div>
+                  </button>
                 </div>
               </div>
 
@@ -392,6 +421,26 @@ export default function AccountPage() {
         currentDescription={description}
         currentAvatarUrl={avatarUrl}
         onSave={handleSaveProfile}
+      />
+
+      <FollowersDialog
+        open={followersDialogOpen}
+        onOpenChange={setFollowersDialogOpen}
+        type="followers"
+        userId={accountUser?.uid || ""}
+        currentUserId={user.uid}
+        onToggleFollow={handleToggleFollowInDialog}
+        fetchUsers={fetchFollowers}
+      />
+
+      <FollowersDialog
+        open={followingDialogOpen}
+        onOpenChange={setFollowingDialogOpen}
+        type="following"
+        userId={accountUser?.uid || ""}
+        currentUserId={user.uid}
+        onToggleFollow={handleToggleFollowInDialog}
+        fetchUsers={fetchFollowing}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

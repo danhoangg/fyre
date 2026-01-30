@@ -227,14 +227,14 @@ export const getUserByUsername = async (username: string) => {
         const normalizedUsername = normalizeUsername(username);
         const q = query(collection(db, "users"), where("normalizedUsername", "==", normalizedUsername), limit(1));
         const querySnapshot = await getDocs(q);
-        
+
         if (querySnapshot.empty) {
             throw new Error("User not found");
         }
 
         const userDoc = querySnapshot.docs[0];
         const userData = userDoc.data();
-        
+
         // Check if current user is following this user via subcollection
         let isFollowing = false;
         if (auth.currentUser) {
@@ -264,12 +264,12 @@ export const getUsers = async (userUids: string[]) => {
         }
 
         const userDocsResults = await Promise.all(
-            chunks.map(chunk => 
+            chunks.map(chunk =>
                 getDocs(query(collection(db, "users"), where(documentId(), "in", chunk)))
             )
         );
 
-        const users = userDocsResults.flatMap(snapshot => 
+        const users = userDocsResults.flatMap(snapshot =>
             snapshot.docs.map(doc => ({
                 uid: doc.id,
                 ...doc.data(),
@@ -295,6 +295,102 @@ export const getUsers = async (userUids: string[]) => {
         return users;
     } catch (error) {
         console.error("Error getting users:", error);
+        throw error;
+    }
+}
+
+export const getFollowersDataPaginated = async (
+    uid: string,
+    lastFollowerId?: string,
+    pageLimit: number = 20
+): Promise<{ users: any[]; hasMore: boolean; lastFollowerId: string | null }> => {
+    const currentUser = auth.currentUser;
+    if (!uid) throw new Error("No UID provided");
+
+    try {
+        const followersRef = collection(db, "users", uid, "followers");
+        let q = query(followersRef, orderBy("createdAt", "desc"), limit(pageLimit + 1));
+
+        if (lastFollowerId) {
+            const lastDoc = await getDoc(doc(db, "users", uid, "followers", lastFollowerId));
+            if (lastDoc.exists()) {
+                q = query(followersRef, orderBy("createdAt", "desc"), startAfter(lastDoc), limit(pageLimit + 1));
+            }
+        }
+
+        const followersSnapshot = await getDocs(q);
+        const hasMore = followersSnapshot.docs.length > pageLimit;
+        const followerDocs = followersSnapshot.docs.slice(0, pageLimit);
+        const followerIds = followerDocs.map(doc => doc.id);
+
+        // Get the last follower ID for pagination
+        const newLastFollowerId = followerDocs.length > 0 ? followerDocs[followerDocs.length - 1].id : null;
+
+        if (followerIds.length === 0) return { users: [], hasMore: false, lastFollowerId: null };
+
+        const users = await getUsers(followerIds);
+
+        // Add isFollowing status for each user
+        if (currentUser) {
+            const usersWithFollowStatus = await Promise.all(
+                users.map(async (user: any) => {
+                    const followingDoc = await getDoc(doc(db, "users", currentUser.uid, "following", user.uid));
+                    return { ...user, isFollowing: followingDoc.exists() };
+                })
+            );
+            return { users: usersWithFollowStatus, hasMore, lastFollowerId: newLastFollowerId };
+        }
+
+        return { users, hasMore, lastFollowerId: newLastFollowerId };
+    } catch (error) {
+        console.error("Error getting followers data paginated:", error);
+        throw error;
+    }
+}
+
+export const getFollowingDataPaginated = async (
+    uid: string,
+    lastFollowerId?: string,
+    pageLimit: number = 20
+): Promise<{ users: any[]; hasMore: boolean; lastFollowerId: string | null }> => {
+    const currentUser = auth.currentUser;
+    if (!uid) throw new Error("No UID provided");
+
+    try {
+        const followingRef = collection(db, "users", uid, "following");
+        let q = query(followingRef, orderBy("createdAt", "desc"), limit(pageLimit + 1));
+
+        if (lastFollowerId) {
+            const lastDoc = await getDoc(doc(db, "users", uid, "following", lastFollowerId));
+            if (lastDoc.exists()) {
+                q = query(followingRef, orderBy("createdAt", "desc"), startAfter(lastDoc), limit(pageLimit + 1));
+            }
+        }
+
+        const followingSnapshot = await getDocs(q);
+        const hasMore = followingSnapshot.docs.length > pageLimit;
+        const followingDocs = followingSnapshot.docs.slice(0, pageLimit);
+        const followingIds = followingDocs.map(doc => doc.id);
+
+        // Get the last following ID for pagination
+        const newLastFollowerId = followingDocs.length > 0 ? followingDocs[followingDocs.length - 1].id : null;
+
+        if (followingIds.length === 0) return { users: [], hasMore: false, lastFollowerId: null };
+
+        const users = await getUsers(followingIds);
+
+        // Add isFollowing status for each user (they're all being followed in this case)
+        if (currentUser) {
+            const usersWithFollowStatus = users.map((user: any) => ({
+                ...user,
+                isFollowing: true // All users in following list are being followed
+            }));
+            return { users: usersWithFollowStatus, hasMore, lastFollowerId: newLastFollowerId };
+        }
+
+        return { users, hasMore, lastFollowerId: newLastFollowerId };
+    } catch (error) {
+        console.error("Error getting following data paginated:", error);
         throw error;
     }
 }

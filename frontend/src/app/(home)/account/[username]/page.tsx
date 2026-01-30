@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CirclePlus, Check, UserPen, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { PostsGrid } from "@/components/posts-grid";
-import { toggleFollow, editProfile, deleteAccount } from "@/services/social";
+import { toggleFollow, editProfile, deleteAccount, getUserByUsername } from "@/services/social";
 import { logOut } from "@/services/auth";
 import { ErrorComponent } from "@/components/ui/error";
 import { SidebarHeaderComponent } from "@/components/sidebar-header";
@@ -45,10 +45,12 @@ export default function AccountPage() {
   const params = useParams();
   const usernameParam = params?.username;
   const username = typeof usernameParam === "string" ? decodeURIComponent(usernameParam) : "";
-  const user = useUser();
-  const ownerViewing = user.username === username;
-
+  const { user, setUser } = useUser();
   const [accountUser, setAccountUser] = useState<any>(null);
+  
+  // Derived state for whether the current user owns this profile
+  const ownerViewing = user.uid === accountUser?.uid || (user.username === username && !!username);
+
   const [posts, setPosts] = useState<Post[]>([]);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
@@ -92,12 +94,8 @@ export default function AccountPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/social/get-users?username=${encodeURIComponent(username)}`);
-      if (!response.ok) {
-        throw new Error('User not found');
-      }
+      const userData: any = await getUserByUsername(username);
 
-      const userData = await response.json();
       setAccountUser(userData);
       setDisplayUsername(userData.username);
       setDescription(userData.description || "");
@@ -201,15 +199,33 @@ export default function AccountPage() {
         data.avatarFile
       );
 
-      if (newAvatarUrl !== accountUser.avatarUrl) {
-        accountUser.avatarUrl = newAvatarUrl;
-      }
-      accountUser.username = data.username;
-      accountUser.description = data.description;
+      // Update the global user context immediately for the sidebar and other components
+      const updatedUser = {
+        ...user,
+        username: data.username,
+        description: data.description,
+        avatarUrl: newAvatarUrl
+      };
+      setUser(updatedUser);
 
-      setDisplayUsername(data.username);
-      setDescription(data.description);
-      setAvatarUrl(newAvatarUrl);
+      // Refresh the server-side session
+      router.refresh();
+
+      if (data.username !== username) {
+        // If username changed, redirect to the new profile URL
+        router.replace(`/account/${encodeURIComponent(data.username)}`);
+      } else {
+        // If username didn't change, update local state for immediate feedback
+        setAccountUser((prev: any) => ({
+          ...prev,
+          username: data.username,
+          description: data.description,
+          avatarUrl: newAvatarUrl
+        }));
+        setDisplayUsername(data.username);
+        setDescription(data.description);
+        setAvatarUrl(newAvatarUrl);
+      }
     } catch (error) {
       throw error;
     }

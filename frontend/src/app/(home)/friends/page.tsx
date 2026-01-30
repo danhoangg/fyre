@@ -32,7 +32,7 @@ import { LoadingComponent } from "@/components/ui/loading"
 
 export default function Page() {
     const router = useRouter()
-    const user = useUser()
+    const { user } = useUser()
     const sidebarUser = {
         name: user.username || "",
         email: user.email || "",
@@ -76,6 +76,13 @@ export default function Page() {
                 try {
                     const results = await searchUsers(searchQuery);
                     setSearchResults(results);
+                    
+                    // Update following map for search results
+                    const searchFollowingMap: { [key: string]: boolean } = {};
+                    results.forEach((user: any) => {
+                        searchFollowingMap[user.uid] = user.isFollowing || false;
+                    });
+                    setFollowing(prev => ({ ...prev, ...searchFollowingMap }));
                 } catch (error) {
                     console.error("Search error:", error);
                     setError(error instanceof Error ? error.message : "Failed to search users");

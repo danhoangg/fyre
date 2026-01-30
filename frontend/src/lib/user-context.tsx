@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 
 export type User = {
   uid: string
@@ -20,21 +20,33 @@ export type User = {
   [key: string]: any
 }
 
-const UserContext = createContext<User | null>(null)
+const UserContext = createContext<{
+  user: User;
+  setUser: (user: User) => void;
+} | null>(null)
 
 export function useUser() {
-  return useContext(UserContext)!
+  const context = useContext(UserContext);
+  if (!context) throw new Error("useUser must be used within a UserProvider");
+  return context;
 }
 
 export function UserProvider({
-  user,
+  user: initialUser,
   children,
 }: {
   user: User
   children: React.ReactNode
 }) {
+  const [user, setUser] = useState<User>(initialUser);
+
+  // Update local state if the prop changes (e.g. from router.refresh())
+  useEffect(() => {
+    setUser(initialUser);
+  }, [initialUser]);
+
   return (
-    <UserContext.Provider value={user}>
+    <UserContext.Provider value={{ user, setUser }}>
       {children}
     </UserContext.Provider>
   )

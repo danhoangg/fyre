@@ -5,9 +5,7 @@ import { getAuth } from "firebase-admin/auth";
  * Generates a session cookie string using the Firebase Admin SDK.
  * This can then be set by the client using nookies or js-cookie.
  */
-export const createSession = onCall({
-  region: "europe-west1",
-}, async (request) => {
+export const createSession = onCall(async (request) => {
   const { idToken } = request.data;
 
   if (!idToken) {
@@ -31,9 +29,7 @@ export const createSession = onCall({
 /**
  * Revokes the session for the authenticated user.
  */
-export const revokeSession = onCall({
-  region: "europe-west1",
-}, async (request) => {
+export const revokeSession = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "User must be logged in to revoke session.");
   }

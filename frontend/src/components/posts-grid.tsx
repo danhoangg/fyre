@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { toggleLikePost, toggleSavePost, toggleLikeComment, toggleFollow } from "@/services/social";
+import { toggleLikePost, toggleSavePost, toggleLikeComment, toggleFollow, getComments } from "@/services/social";
 import { deleteComment, deletePost, writeComment } from "@/services/posts";
 import { useUser } from "@/lib/user-context";
 import {
@@ -49,7 +49,7 @@ interface PostsGridProps {
 }
 
 export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdated, showFollowing = true }: PostsGridProps) {
-    const user = useUser();
+    const { user } = useUser();
     const router = useRouter();
     const [expandedPosts, setExpandedPosts] = useState<{ [key: string]: { ingredients: boolean; details: boolean; comments: boolean } }>({});
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
@@ -252,16 +252,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             const currentComments = allPostComments[postId] || [];
             const lastLoadedCommentId = currentComments.length > 0 ? currentComments[currentComments.length - 1].id : commentPagination[postId]?.lastCommentId || undefined;
 
-            const params = new URLSearchParams({
-                postId,
-                limit: "10",
-                ...(lastLoadedCommentId && { lastCommentId: lastLoadedCommentId })
-            });
-
-            const response = await fetch(`/api/posts/get-comments?${params}`);
-            if (!response.ok) throw new Error("Failed to load more comments");
-
-            const data = await response.json();
+            const data = await getComments(postId, lastLoadedCommentId, 10);
             
             // Deduplicate comments - only add if they don't already exist
             const existingCommentIds = new Set((allPostComments[postId] || []).map((c: any) => c.id));

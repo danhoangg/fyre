@@ -1,3 +1,24 @@
+import { db, auth, functions } from "@/lib/firebase";
+import {
+    collection,
+    addDoc,
+    serverTimestamp,
+} from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+
+// Cloud Function references
+const deletePostCallable = httpsCallable(functions, "deletePost");
+const deleteCommentCallable = httpsCallable(functions, "deleteComment");
+const getUserPostsCallable = httpsCallable(functions, "getUserPosts");
+const getSavedPostsCallable = httpsCallable(functions, "getSavedPosts");
+const getHomePostsCallable = httpsCallable(functions, "getHomePosts");
+const getExplorePostsCallable = httpsCallable(functions, "getExplorePosts");
+const getPostCallable = httpsCallable(functions, "getPost");
+
+/**
+ * Create a new post using the client SDK.
+ * Simple write operation - no complex logic needed.
+ */
 export const createPost = async (data: {
     title: string;
     description: string;
@@ -5,136 +26,112 @@ export const createPost = async (data: {
     directions: string;
     nutrition: string;
     imageUrls: string[];
-}): Promise<void> => {
-    const res = await fetch("/api/posts/create-post", {
-        method: "POST",
-        body: new URLSearchParams({
-            title: data.title,
-            description: data.description,
-            ingredients: data.ingredients,
-            directions: data.directions,
-            nutrition: data.nutrition,
-            imageUrls: JSON.stringify(data.imageUrls),
-        }),
+}): Promise<string> => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Unauthorized");
+
+    const docRef = await addDoc(collection(db, "posts"), {
+        authorId: user.uid,
+        title: data.title,
+        description: data.description,
+        ingredients: data.ingredients,
+        directions: data.directions,
+        nutrition: data.nutrition,
+        imageUrls: data.imageUrls,
+        likeCount: 0,
+        saveCount: 0,
+        score: 0,
+        createdAt: serverTimestamp(),
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Create post failed: ${res.status} ${text}`);
-    }
+    return docRef.id;
 };
 
+/**
+ * Delete a post using Cloud Function.
+ * Requires transaction to delete related likes, saves, and comments.
+ */
 export const deletePost = async (postId: string): Promise<void> => {
-    const res = await fetch("/api/posts/delete-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId }),
-    });
+    await deletePostCallable({ postId });
+};
 
-    if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete post");
-    }
-}
-
+/**
+ * Load posts by a specific user using Cloud Function.
+ */
 export const loadUserPosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
     posts: any[];
     hasMore: boolean;
 }> => {
-    const response = await fetch(
-        `/api/posts/user-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
-    );
-
-    if (!response.ok) {
-        throw new Error("Failed to load posts");
-    }
-
-    return response.json();
+    const result = await getUserPostsCallable({ uid, lastPostId, limit });
+    return result.data as { posts: any[]; hasMore: boolean };
 };
 
+/**
+ * Load saved posts using Cloud Function.
+ */
 export const loadSavedPosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
     posts: any[];
     hasMore: boolean;
 }> => {
-    const response = await fetch(
-        `/api/posts/get-saved-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
-    );
-
-    if (!response.ok) {
-        throw new Error("Failed to load saved posts");
-    }
-
-    return response.json();
+    const result = await getSavedPostsCallable({ uid, lastPostId, limit });
+    return result.data as { posts: any[]; hasMore: boolean };
 };
 
+/**
+ * Load home feed posts using Cloud Function.
+ */
 export const loadHomePosts = async (uid: string, lastPostId?: string, limit: number = 10): Promise<{
     posts: any[];
     hasMore: boolean;
 }> => {
-    const response = await fetch(
-        `/api/posts/get-home-posts?uid=${uid}&lastPostId=${lastPostId || ''}&limit=${limit}`
-    );
-
-    if (!response.ok) {
-        throw new Error("Failed to load home posts");
-    }
-
-    return response.json();
+    const result = await getHomePostsCallable({ uid, lastPostId, limit });
+    return result.data as { posts: any[]; hasMore: boolean };
 };
 
+/**
+ * Load explore posts using Cloud Function.
+ */
 export const loadExplorePosts = async (lastPostId?: string, limit: number = 10): Promise<{
     posts: any[];
     hasMore: boolean;
 }> => {
-    const response = await fetch(
-        `/api/posts/get-explore-posts?lastPostId=${lastPostId || ''}&limit=${limit}`
-    );
-
-    if (!response.ok) {
-        throw new Error("Failed to load explore posts");
-    }
-
-    return response.json();
+    const result = await getExplorePostsCallable({ lastPostId, limit });
+    return result.data as { posts: any[]; hasMore: boolean };
 };
 
+/**
+ * Write a comment using the client SDK.
+ * Simple write to a subcollection - no complex logic needed.
+ */
 export const writeComment = async (data: {
     postId: string;
     content: string;
-}): Promise<void> => {
-    const res = await fetch("/api/posts/write-comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            postId: data.postId,
-            content: data.content,
-        }),
+}): Promise<string> => {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Unauthorized");
+
+    const commentRef = await addDoc(collection(db, "posts", data.postId, "comments"), {
+        authorId: user.uid,
+        text: data.content,
+        likeCount: 0,
+        createdAt: serverTimestamp(),
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Write comment failed: ${res.status} ${text}`);
-    }
+    return commentRef.id;
 };
 
+/**
+ * Delete a comment using Cloud Function.
+ * Requires transaction to delete related comment likes.
+ */
 export const deleteComment = async (postId: string, commentId: string): Promise<void> => {
-    const res = await fetch("/api/posts/delete-comment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, commentId }),
-    });
-
-    if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete comment");
-    }
+    await deleteCommentCallable({ postId, commentId });
 };
 
+/**
+ * Get a single post by ID using Cloud Function.
+ */
 export const getPost = async (postId: string): Promise<any> => {
-    const response = await fetch(`/api/posts/get-post?postId=${postId}`);
-
-    if (!response.ok) {
-        throw new Error("Failed to load post");
-    }
-
-    return response.json();
+    const result = await getPostCallable({ postId });
+    return result.data;
 };

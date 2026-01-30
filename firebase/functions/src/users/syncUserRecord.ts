@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions/v1";
+import { auth } from "firebase-functions/v1";
 import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 
@@ -6,10 +6,7 @@ import * as logger from "firebase-functions/logger";
  * Automatically creates a Firestore user document when a new Firebase Auth user is created.
  * Also handles Google Auth signup by using the profile data.
  */
-export const syncUserRecord = functions
-  .region("europe-west1")
-  .auth.user()
-  .onCreate(async (user) => {
+export const syncUserRecord = auth.user().onCreate(async (user) => {
   const db = getFirestore();
   const { uid, email, displayName, photoURL } = user;
 

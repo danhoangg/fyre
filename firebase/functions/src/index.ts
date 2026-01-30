@@ -16,5 +16,10 @@ setGlobalOptions({
 export * from "./analytics/recalculateScores";
 export * from "./users/checkUsername";
 export * from "./users/lookupEmail";
+export * from "./users/deleteAccount";
 export * from "./users/syncUserRecord";
 export * from "./auth/session";
+export * from "./social/postTriggers";
+export * from "./social/interactionTriggers";
+export * from "./social/followTriggers";
+export * from "./posts/postFunctions";

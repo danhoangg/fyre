@@ -5,9 +5,7 @@ import { getFirestore } from "firebase-admin/firestore";
  * Checks if a username is already taken.
  * Callable from the client SDK.
  */
-export const checkUsername = onCall({
-  region: "europe-west1",
-}, async (request) => {
+export const checkUsername = onCall(async (request) => {
   const { username } = request.data;
 
   if (!username || typeof username !== "string") {

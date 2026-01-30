@@ -26,10 +26,10 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
 
     const data = userDoc.data() || {}
 
-    // Get list of users that current user is following and followers
+    // Get followers and following counts from subcollections
     const [followingCountSnapshot, followersCountSnapshot] = await Promise.all([
-      adminDb.collection("follows").where("fromUid", "==", uid).count().get(),
-      adminDb.collection("follows").where("toUid", "==", uid).count().get()
+      adminDb.collection("users").doc(uid).collection("following").count().get(),
+      adminDb.collection("users").doc(uid).collection("followers").count().get()
     ])
 
     const followersCount = followersCountSnapshot.data().count

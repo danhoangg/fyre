@@ -5,9 +5,7 @@ import { getFirestore } from "firebase-admin/firestore";
  * Looks up the email associated with a given username.
  * Callable from the client SDK.
  */
-export const lookupEmail = onCall({
-    region: "europe-west1",
-}, async (request) => {
+export const lookupEmail = onCall(async (request) => {
     try {
         const { username } = request.data;
 

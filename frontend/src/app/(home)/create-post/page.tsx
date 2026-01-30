@@ -27,7 +27,7 @@ import { SidebarHeaderComponent } from "@/components/sidebar-header"
 export default function CreatePostPage() {
     const router = useRouter()
 
-    const user = useUser()
+    const { user } = useUser()
     const sidebarUser = {
         name: user.username || "",
         email: user.email || "",

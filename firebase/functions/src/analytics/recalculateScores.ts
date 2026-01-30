@@ -6,10 +6,7 @@ import { getFirestore } from "firebase-admin/firestore";
  * Recalculates scores for all posts daily at midnight.
  * The score formula follows: likeCount / (hoursSincePost + 2)^1.5
  */
-export const recalculateScores = onSchedule({
-  schedule: "0 0 * * *",
-  region: "europe-west1",
-}, async () => {
+export const recalculateScores = onSchedule("0 0 * * *", async () => {
   const db = getFirestore();
   logger.info("Recalculating scores for all posts");
 

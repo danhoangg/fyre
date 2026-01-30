@@ -25,7 +25,7 @@ interface SidebarUser {
 
 export default function HomePage() {
     const params = useParams();
-    const user = useUser();
+    const { user } = useUser();
 
     const [posts, setPosts] = useState<Post[]>([]);
     const [hasMore, setHasMore] = useState<boolean>(false);

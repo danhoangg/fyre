@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
+    match /posts/{postId} {
+
+      // Public reads (adjust as needed)
+      allow read: if true;
+
+      // Allow create only when authenticated and authorId matches the requester
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.authorId
+                    && request.resource.data.title is string
+                    && request.resource.data.title.size() <= 300
+                    && (request.resource.data.imageUrls is list || request.resource.data.imageUrls == null)
+                    && request.resource.data.likes is int
+                    && request.resource.data.likes == 0;
+
+      // Allow update only by owner, and prevent changing authorId
+      allow update: if request.auth != null
+                    && request.auth.uid == resource.data.authorId
+                    && request.resource.data.authorId == resource.data.authorId
+                    && (request.resource.data.title is string && request.resource.data.title.size() <= 300)
+                    && (request.resource.data.imageUrls is list || request.resource.data.imageUrls == resource.data.imageUrls);
+
+      // Allow delete only by owner
+      allow delete: if request.auth != null && request.auth.uid == resource.data.authorId;
+    }
+  }
+}

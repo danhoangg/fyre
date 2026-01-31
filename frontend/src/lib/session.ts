@@ -18,8 +18,9 @@ export async function getCurrentUser(): Promise<Record<string, any> | null> {
   try {
     // We set checkRevoked to false to avoid "Session revoked" errors 
     // that can occur due to sync delays between the client and admin SDKs.
-    const decoded = await adminAuth.verifySessionCookie(session, false).catch(err => {
+    const decoded = await adminAuth.verifySessionCookie(session, false).catch(async err => {
       console.error("Session verification failed:", err.message)
+      await clearSessionCookie()
       return null
     })
 

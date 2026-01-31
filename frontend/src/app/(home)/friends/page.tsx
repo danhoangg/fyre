@@ -24,11 +24,13 @@ import {
 import { useUser } from "@/lib/user-context"
 import { getFriendsData, searchUsers } from "@/services/social"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
-import { Check, CirclePlus, Search } from "lucide-react"
+import { Check, CirclePlus, MessageCircle, MoreHorizontal, Search, UserRoundX } from "lucide-react"
 import { ErrorComponent } from "@/components/ui/error"
 
 import { toggleFollow } from "@/services/social"
 import { LoadingComponent } from "@/components/ui/loading"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 
 export default function Page() {
     const router = useRouter()
@@ -42,7 +44,6 @@ export default function Page() {
 
     const [friendsData, setFriendsData] = useState<any[]>([]);
     const [following, setFollowing] = useState<{ [key: string]: boolean }>({});
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -63,7 +64,7 @@ export default function Page() {
             })
             .catch(error => {
                 console.error("Fetch friends error:", error);
-                setError(error instanceof Error ? error.message : "Failed to fetch friends data");
+                toast.error(error instanceof Error ? error.message : "Failed to fetch friends data");
             })
             .finally(() => setLoading(false));
     }, [user.uid]);
@@ -76,7 +77,7 @@ export default function Page() {
                 try {
                     const results = await searchUsers(searchQuery);
                     setSearchResults(results);
-                    
+
                     // Update following map for search results
                     const searchFollowingMap: { [key: string]: boolean } = {};
                     results.forEach((user: any) => {
@@ -85,7 +86,7 @@ export default function Page() {
                     setFollowing(prev => ({ ...prev, ...searchFollowingMap }));
                 } catch (error) {
                     console.error("Search error:", error);
-                    setError(error instanceof Error ? error.message : "Failed to search users");
+                    toast.error(error instanceof Error ? error.message : "Failed to search users");
                 } finally {
                     setIsSearching(false);
                 }
@@ -112,13 +113,19 @@ export default function Page() {
             await toggleFollow(friendUid);
         } catch (error) {
             console.error("Follow toggle error:", error);
-            setError(error instanceof Error ? error.message : "An error occurred");
+            toast.error(error instanceof Error ? error.message : "An error occurred");
             // Revert on error
             setFollowing(prev => ({
                 ...prev,
                 [friendUid]: wasFollowing,
             }));
         }
+    }
+
+    const handleOpenMessage = (e: React.MouseEvent, conversationId: string): void => {
+        e.stopPropagation(); // Prevent navigation when clicking message button
+        router.push(`/messages/${conversationId}`)
+
     }
 
     return (
@@ -128,7 +135,6 @@ export default function Page() {
                 <SidebarHeaderComponent title="Friends" />
                 <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
-                        {error && <ErrorComponent message={error} />}
 
                         {/* Search Bar */}
                         <div className="mb-6">
@@ -218,17 +224,30 @@ export default function Page() {
                                                 <ItemDescription>{friend.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {following[friend.uid] ? (
-                                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(e, friend.uid)}>
-                                                        <Check className="h-4 w-4" />
-                                                        <span>Following</span>
-                                                    </Button>
-                                                ) : (
-                                                    <Button variant="outline" onClick={(e) => handleFollowToggle(e, friend.uid)}>
-                                                        <CirclePlus className="h-4 w-4" />
-                                                        <span>Follow</span>
-                                                    </Button>
-                                                )}
+                                                <Button variant="outline" onClick={(e) => handleOpenMessage(e, friend.conversationId)}>
+                                                    <MessageCircle className="h-4 w-4" />
+                                                    <span>Message</span>
+                                                </Button>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button size="icon" variant="ghost">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        {!following[friend.uid] ? (
+                                                            <DropdownMenuItem onClick={(e) => handleFollowToggle(e, friend.uid)}>
+                                                                <CirclePlus className="h-4 w-4" />
+                                                                <span>Follow User</span>
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <DropdownMenuItem onClick={(e) => handleFollowToggle(e, friend.uid)}>
+                                                                <UserRoundX className="h-4 w-4" />
+                                                                <span>Unfollow User</span>
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </ItemActions>
                                         </Item>
                                     ))}

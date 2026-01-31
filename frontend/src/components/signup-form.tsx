@@ -17,17 +17,16 @@ import { useRouter } from "next/navigation"
 import { signUp, signInWithGoogle } from "@/services/auth"
 import { Spinner } from "@/components/ui/spinner"
 import { ErrorComponent } from "./ui/error"
+import { toast } from "sonner"
 
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGoogleSignup = async () => {
-    setError(null)
     setIsLoading(true)
 
     try {
@@ -35,7 +34,7 @@ export function SignupForm({
       router.replace("/")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to sign up with Google"
-      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -43,7 +42,6 @@ export function SignupForm({
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError(null)
     setIsLoading(true)
 
     try {
@@ -76,7 +74,7 @@ export function SignupForm({
       router.replace("/")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create account"
-      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -88,9 +86,6 @@ export function SignupForm({
         <CardContent className="grid p-0 md:grid-cols-2">
           <form className="p-6 md:p-8" onSubmit={handleSignup}>
             <FieldGroup>
-              {error && (
-                <ErrorComponent message={error} />
-              )}
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Create your account</h1>
                 <p className="text-muted-foreground text-sm text-balance">

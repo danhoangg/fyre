@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Upload } from "lucide-react";
 import { ErrorComponent } from "./ui/error";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface EditProfileDialogProps {
     open: boolean;
@@ -40,7 +41,6 @@ export function EditProfileDialog({
     const [avatarPreview, setAvatarPreview] = useState<string>(currentAvatarUrl);
     const [avatarChanged, setAvatarChanged] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Reset to original values when dialog opens
@@ -51,7 +51,6 @@ export function EditProfileDialog({
             setAvatarFile(null);
             setAvatarPreview(currentAvatarUrl);
             setAvatarChanged(false);
-            setError(null);
         }
     }, [open, currentUsername, currentDescription, currentAvatarUrl]);
 
@@ -59,7 +58,7 @@ export function EditProfileDialog({
         const file = e.target.files?.[0];
         if (file) {
             if (!file.type.startsWith('image/')) {
-                setError('Please select an image file');
+                toast.error('Please select an image file');
                 return;
             }
             
@@ -72,13 +71,11 @@ export function EditProfileDialog({
                 setAvatarPreview(reader.result as string);
             };
             reader.readAsDataURL(file);
-            setError(null);
         }
     };
 
     const handleSave = async () => {
         setLoading(true);
-        setError(null);
         try {
             await onSave({ 
                 username, 
@@ -92,7 +89,7 @@ export function EditProfileDialog({
                 router.replace(`/account/${encodeURIComponent(username)}`);
             }
         } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to save profile");
+            toast.error(err instanceof Error ? err.message : "Failed to save profile");
         } finally {
             setLoading(false);
         }
@@ -159,9 +156,6 @@ export function EditProfileDialog({
                                 </span>
                             )}
                         </div>
-                    )}
-                    {error && (
-                        <ErrorComponent message={error} />
                     )}
                 </div>
                 <DialogFooter>

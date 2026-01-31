@@ -14,6 +14,7 @@ import { EditProfileDialog } from "@/components/edit-profile-dialog";
 import { loadUserPosts, getPost, loadSavedPosts } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 
 interface Post {
     id: string;
@@ -35,7 +36,6 @@ export default function SavedPostsPage() {
     const [hasMore, setHasMore] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [loadingMore, setLoadingMore] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
 
     const [mounted, setMounted] = useState<boolean>(false);
 
@@ -56,7 +56,7 @@ export default function SavedPostsPage() {
                 setHasMore(postsData.hasMore);
             } catch (error) {
                 console.error("Failed to load saved posts:", error);
-                setError("Failed to load saved posts");
+                toast.error("Failed to load saved posts");
             } finally {
                 setLoading(false);
             }
@@ -94,7 +94,7 @@ export default function SavedPostsPage() {
             setHasMore(data.hasMore);
         } catch (error) {
             console.error("Failed to load more posts:", error);
-            setError("Failed to load more posts");
+            toast.error("Failed to load more posts");
         } finally {
             setLoadingMore(false);
         }
@@ -130,7 +130,6 @@ export default function SavedPostsPage() {
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
                 <SidebarHeaderComponent title="Saved Posts" />
-                {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
                         <div className="space-y-6">

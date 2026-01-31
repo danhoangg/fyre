@@ -7,7 +7,7 @@ import {
 } from "firebase/auth"
 import { auth, functions } from "@/lib/firebase"
 import { httpsCallable } from "firebase/functions"
-import { setCookie, destroyCookie } from "nookies"
+import Cookies from "js-cookie"
 
 // Callable function references
 const checkUsernameCallable = httpsCallable(functions, "checkUsername");
@@ -17,7 +17,7 @@ const revokeSessionCallable = httpsCallable(functions, "revokeSession");
 
 export const signUp = async (username: string, email: string, password: string) => {
     // Clear any existing session cookie before attempting to sign up
-    destroyCookie(null, "session", { path: "/" });
+    Cookies.remove("session", { path: "/" });
     
     // Check if username is already taken via Cloud function
     const { data: { available } } = await checkUsernameCallable({ username }) as { data: { available: boolean } };
@@ -34,10 +34,10 @@ export const signUp = async (username: string, email: string, password: string) 
         const result = await createSessionCallable({ idToken });
         const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
         
-        setCookie(null, "session", sessionCookie, {
-            maxAge: maxAge,
+        Cookies.set("session", sessionCookie, {
+            expires: maxAge / 86400, // js-cookie uses days, not seconds
             path: "/",
-            secure: true, // Always true if deployed (usually HTTPS)
+            secure: true,
             sameSite: "lax",
         });
     } catch (error) {
@@ -48,7 +48,7 @@ export const signUp = async (username: string, email: string, password: string) 
 
 export const signIn = async (usernameOrEmail: string, password: string) => {
     // Clear any existing session cookie before attempting to sign in
-    destroyCookie(null, "session", { path: "/" });
+    Cookies.remove("session", { path: "/" });
     
     let email = usernameOrEmail
 
@@ -68,8 +68,8 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
         const result = await createSessionCallable({ idToken });
         const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
         
-        setCookie(null, "session", sessionCookie, {
-            maxAge: maxAge,
+        Cookies.set("session", sessionCookie, {
+            expires: maxAge / 86400,
             path: "/",
             secure: true,
             sameSite: "lax",
@@ -82,7 +82,7 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
 
 export const signInWithGoogle = async () => {
     // Clear any existing session cookie before attempting to sign in
-    destroyCookie(null, "session", { path: "/" });
+    Cookies.remove("session", { path: "/" });
     
     const provider = new GoogleAuthProvider();
     // Sign in. The Firestore document will be created automatically 
@@ -95,8 +95,8 @@ export const signInWithGoogle = async () => {
         const result = await createSessionCallable({ idToken });
         const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
         
-        setCookie(null, "session", sessionCookie, {
-            maxAge: maxAge,
+        Cookies.set("session", sessionCookie, {
+            expires: maxAge / 86400,
             path: "/",
             secure: true,
             sameSite: "lax",
@@ -115,5 +115,5 @@ export const logOut = async () => {
     }
     
     await signOut(auth);
-    destroyCookie(null, "session", { path: "/" });
+    Cookies.remove("session", { path: "/" });
 }

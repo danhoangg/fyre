@@ -24,11 +24,12 @@ import {
 import { useUser } from "@/lib/user-context"
 import { getFriendsData, searchUsers } from "@/services/social"
 import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@/components/ui/item"
-import { Check, CirclePlus, Search } from "lucide-react"
+import { Check, CirclePlus, MessageCircle, MoreHorizontal, Search, UserRoundX } from "lucide-react"
 import { ErrorComponent } from "@/components/ui/error"
 
 import { toggleFollow } from "@/services/social"
 import { LoadingComponent } from "@/components/ui/loading"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function Page() {
     const router = useRouter()
@@ -76,7 +77,7 @@ export default function Page() {
                 try {
                     const results = await searchUsers(searchQuery);
                     setSearchResults(results);
-                    
+
                     // Update following map for search results
                     const searchFollowingMap: { [key: string]: boolean } = {};
                     results.forEach((user: any) => {
@@ -119,6 +120,12 @@ export default function Page() {
                 [friendUid]: wasFollowing,
             }));
         }
+    }
+
+    const handleOpenMessage = (e: React.MouseEvent, conversationId: string): void => {
+        e.stopPropagation(); // Prevent navigation when clicking message button
+        router.push(`/messages/${conversationId}`)
+
     }
 
     return (
@@ -218,17 +225,30 @@ export default function Page() {
                                                 <ItemDescription>{friend.description}</ItemDescription>
                                             </ItemContent>
                                             <ItemActions>
-                                                {following[friend.uid] ? (
-                                                    <Button variant="secondary" onClick={(e) => handleFollowToggle(e, friend.uid)}>
-                                                        <Check className="h-4 w-4" />
-                                                        <span>Following</span>
-                                                    </Button>
-                                                ) : (
-                                                    <Button variant="outline" onClick={(e) => handleFollowToggle(e, friend.uid)}>
-                                                        <CirclePlus className="h-4 w-4" />
-                                                        <span>Follow</span>
-                                                    </Button>
-                                                )}
+                                                <Button variant="outline" onClick={(e) => handleOpenMessage(e, friend.conversationId)}>
+                                                    <MessageCircle className="h-4 w-4" />
+                                                    <span>Message</span>
+                                                </Button>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button size="icon" variant="ghost">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        {!following[friend.uid] ? (
+                                                            <DropdownMenuItem onClick={(e) => handleFollowToggle(e, friend.uid)}>
+                                                                <CirclePlus className="h-4 w-4" />
+                                                                <span>Follow User</span>
+                                                            </DropdownMenuItem>
+                                                        ) : (
+                                                            <DropdownMenuItem onClick={(e) => handleFollowToggle(e, friend.uid)}>
+                                                                <UserRoundX className="h-4 w-4" />
+                                                                <span>Unfollow User</span>
+                                                            </DropdownMenuItem>
+                                                        )}
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
                                             </ItemActions>
                                         </Item>
                                     ))}

@@ -22,6 +22,7 @@ import { toggleLikePost, toggleSavePost, toggleLikeComment, getComments, toggleF
 import { writeComment, deleteComment } from "@/services/posts";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
+import { LoadingComponent } from "@/components/ui/loading";
 
 interface Post {
     id: string;
@@ -361,7 +362,7 @@ export default function PostPage() {
                 <AppSidebar user={sidebarUser} />
                 <SidebarInset>
                     <SidebarHeaderComponent title="Post" />
-                    {loading && <div className="p-4">Loading...</div>}
+                    {loading && <LoadingComponent text="Loading post..." />}
                     {error && <ErrorComponent message={error} />}
                 </SidebarInset>
             </SidebarProvider>

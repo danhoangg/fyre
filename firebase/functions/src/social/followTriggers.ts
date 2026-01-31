@@ -54,17 +54,29 @@ export const onFollowCreated = onDocumentCreated("users/{fromUid}/following/{toU
 
         // 4: Handle Friend Status (if they follow each other)
         if (reverseFollow.exists) {
+            // Create new conversation document for the new friends
+            const conversationId = `${[fromUid, toUid].sort().join("_")}`;
+            const conversationRef = db.collection("conversations").doc(conversationId);
+            if (!(await conversationRef.get()).exists) {
+                batch.set(conversationRef, {
+                    users: [fromUid, toUid],
+                    createdAt: FieldValue.serverTimestamp()
+                });
+            }
+
             batch.set(followerRef.collection("friends").doc(toUid), {
                 avatarUrl: followeeData?.avatarUrl || "",
                 description: followeeData?.description || "",
                 username: followeeData?.username || "",
-                createdAt: FieldValue.serverTimestamp()
+                createdAt: FieldValue.serverTimestamp(),
+                conversationId: conversationId
             });
             batch.set(followeeRef.collection("friends").doc(fromUid), {
                 avatarUrl: followerData?.avatarUrl || "",
                 description: followerData?.description || "",
                 username: followerData?.username || "",
-                createdAt: FieldValue.serverTimestamp()
+                createdAt: FieldValue.serverTimestamp(),
+                conversationId: conversationId
             });
         }
 

@@ -405,7 +405,24 @@ export const getFriendsData = async (uid?: string) => {
 
         if (friendIds.length === 0) return [];
 
-        return await getUsers(friendIds);
+        // Include conversation id from friend doc data
+        const friendsDataPromises = friendIds.map(async (friendId) => {
+            const friendDoc = await getDoc(doc(db, "users", targetUid, "friends", friendId));
+            const friendData = friendDoc.data() || {};
+            return { uid: friendId, conversationId: friendData.conversationId || null };
+        });
+
+        const friendsData = await Promise.all(friendsDataPromises);
+        const users = await getUsers(friendsData.map(f => f.uid));
+
+        // Merge conversationId into user data
+        return users.map(user => {
+            const friendData = friendsData.find(f => f.uid === user.uid);
+            return {
+                ...user,
+                conversationId: friendData?.conversationId || null
+            };
+        });
     } catch (error) {
         console.error("Error getting friends data:", error);
         throw error;

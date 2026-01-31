@@ -41,6 +41,7 @@ import { formatTimeAgo } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 interface PostsGridProps {
     posts: any[];
@@ -61,7 +62,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
     const [saveCounts, setSaveCounts] = useState<{ [key: string]: number }>({});
     const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
     const [deleteConfirmPostId, setDeleteConfirmPostId] = useState<string | null>(null);
-    const [error, setError] = useState<string | null>(null);
     const [commentTexts, setCommentTexts] = useState<{ [key: string]: string }>({});
     const [submittingComment, setSubmittingComment] = useState<{ [key: string]: boolean }>({});
     const [optimisticComments, setOptimisticComments] = useState<{ [key: string]: any[] }>({});
@@ -226,7 +226,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
         } catch (error) {
             console.error("Failed to toggle follow:", error);
             setFollowedAuthors(prev => ({ ...prev, [authorId]: wasFollowing }));
-            setError(error instanceof Error ? error.message : "Failed to toggle follow");
+            toast.error(error instanceof Error ? error.message : "Failed to toggle follow");
         }
     };
 
@@ -305,7 +305,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
 
     const handleCommentDelete = async (postId: string, commentId: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        setError(null);
         setDeletingComments(prev => ({ ...prev, [commentId]: true }));
         try {
             await deleteComment(postId, commentId);
@@ -314,7 +313,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             }
         } catch (error) {
             console.error("Failed to delete comment:", error);
-            setError(error instanceof Error ? error.message : "Failed to delete comment");
+            toast.error(error instanceof Error ? error.message : "Failed to delete comment");
         }
     }
 
@@ -354,7 +353,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             }
         } catch (error) {
             console.error('Failed to submit comment:', error);
-            setError(error instanceof Error ? error.message : 'Failed to submit comment');
+            toast.error(error instanceof Error ? error.message : 'Failed to submit comment');
             // Revert optimistic update and restore input text
             setOptimisticComments(prev => ({
                 ...prev,
@@ -370,7 +369,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
         if (!deleteConfirmPostId) return;
 
         setDeletingPostId(deleteConfirmPostId);
-        setError(null);
 
         try {
             await deletePost(deleteConfirmPostId);
@@ -382,7 +380,7 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
             setDeleteConfirmPostId(null);
         } catch (error) {
             console.error("Failed to delete post:", error);
-            setError(error instanceof Error ? error.message : "Failed to delete post");
+            toast.error(error instanceof Error ? error.message : "Failed to delete post");
         } finally {
             setDeletingPostId(null);
         }
@@ -440,9 +438,6 @@ export function PostsGrid({ posts, currentUserId, onPostDeleted, onCommentUpdate
 
     return (
         <>
-            {/* Error Message */}
-            {error && <ErrorComponent message={error} />}
-
             <div className="space-y-6">
                 {posts.map((post: any) => {
                     const isOwner = currentUserId && post.authorId === currentUserId;

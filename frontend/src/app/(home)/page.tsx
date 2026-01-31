@@ -10,6 +10,7 @@ import { SidebarHeaderComponent } from "@/components/sidebar-header";
 import { getPost, loadHomePosts } from "@/services/posts";
 import { LoadingComponent } from "@/components/ui/loading";
 import { useParams } from "next/navigation";
+import { toast } from "sonner";
 
 interface Post {
     id: string;
@@ -31,7 +32,6 @@ export default function HomePage() {
     const [hasMore, setHasMore] = useState<boolean>(false);
     const [loading, setLoading] = useState<boolean>(true);
     const [loadingMore, setLoadingMore] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
 
     const [mounted, setMounted] = useState<boolean>(false);
 
@@ -52,7 +52,7 @@ export default function HomePage() {
                 setHasMore(postsData.hasMore);
             } catch (error) {
                 console.error("Failed to load home data:", error);
-                setError("Failed to load home data");
+                toast.error("Failed to load home data");
             } finally {
                 setLoading(false);
             }
@@ -90,7 +90,7 @@ export default function HomePage() {
             setHasMore(data.hasMore);
         } catch (error) {
             console.error("Failed to load more posts:", error);
-            setError("Failed to load more posts");
+            toast.error("Failed to load more posts");
         } finally {
             setLoadingMore(false);
         }
@@ -126,7 +126,6 @@ export default function HomePage() {
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
                 <SidebarHeaderComponent title="Home" />
-                {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
                       <h2 className="text-2xl font-semibold mb-4">Latest Posts</h2>

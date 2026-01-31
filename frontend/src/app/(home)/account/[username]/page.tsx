@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 
 interface Post {
   id: string;
@@ -64,7 +65,6 @@ export default function AccountPage() {
   const [following, setFollowing] = useState<boolean>(false);
   const [followersCount, setFollowersCount] = useState<number>(0);
   const [followingCount, setFollowingCount] = useState<number>(0);
-  const [error, setError] = useState<string | null>(null);
 
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
@@ -85,7 +85,7 @@ export default function AccountPage() {
       router.push("/login");
     } catch (error) {
       console.error("Failed to delete account:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
+      toast.error(error instanceof Error ? error.message : "An error occurred");
     } finally {
       setIsDeleting(false);
       setDeleteDialogOpen(false);
@@ -113,7 +113,7 @@ export default function AccountPage() {
       setHasMore(postsData.hasMore);
     } catch (error) {
       console.error("Failed to load account:", error);
-      setError("Failed to load account data");
+      toast.error("Failed to load account data");
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,7 @@ export default function AccountPage() {
       setHasMore(data.hasMore);
     } catch (error) {
       console.error("Failed to load more posts:", error);
-      setError("Failed to load more posts");
+      toast.error("Failed to load more posts");
     } finally {
       setLoadingMore(false);
     }
@@ -179,7 +179,7 @@ export default function AccountPage() {
       await toggleFollow(accountUser.uid);
     } catch (error) {
       console.error("Follow toggle error:", error);
-      setError(error instanceof Error ? error.message : "An error occurred");
+      toast.error(error instanceof Error ? error.message : "An error occurred");
       setFollowing(wasFollowing);
       setFollowersCount(previousCount);
     }
@@ -300,7 +300,6 @@ export default function AccountPage() {
       <AppSidebar user={sidebarUser} />
       <SidebarInset>
         <SidebarHeaderComponent title={displayUsername === user.username ? "Your Account" : displayUsername} />
-        {error && <ErrorComponent message={error} />}
         <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
           <div className="mx-auto w-full max-w-2xl">
             <div className="space-y-6">

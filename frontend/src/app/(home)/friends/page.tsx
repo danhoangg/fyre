@@ -30,6 +30,7 @@ import { ErrorComponent } from "@/components/ui/error"
 import { toggleFollow } from "@/services/social"
 import { LoadingComponent } from "@/components/ui/loading"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 
 export default function Page() {
     const router = useRouter()
@@ -43,7 +44,6 @@ export default function Page() {
 
     const [friendsData, setFriendsData] = useState<any[]>([]);
     const [following, setFollowing] = useState<{ [key: string]: boolean }>({});
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [searchQuery, setSearchQuery] = useState<string>("");
     const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -64,7 +64,7 @@ export default function Page() {
             })
             .catch(error => {
                 console.error("Fetch friends error:", error);
-                setError(error instanceof Error ? error.message : "Failed to fetch friends data");
+                toast.error(error instanceof Error ? error.message : "Failed to fetch friends data");
             })
             .finally(() => setLoading(false));
     }, [user.uid]);
@@ -86,7 +86,7 @@ export default function Page() {
                     setFollowing(prev => ({ ...prev, ...searchFollowingMap }));
                 } catch (error) {
                     console.error("Search error:", error);
-                    setError(error instanceof Error ? error.message : "Failed to search users");
+                    toast.error(error instanceof Error ? error.message : "Failed to search users");
                 } finally {
                     setIsSearching(false);
                 }
@@ -113,7 +113,7 @@ export default function Page() {
             await toggleFollow(friendUid);
         } catch (error) {
             console.error("Follow toggle error:", error);
-            setError(error instanceof Error ? error.message : "An error occurred");
+            toast.error(error instanceof Error ? error.message : "An error occurred");
             // Revert on error
             setFollowing(prev => ({
                 ...prev,
@@ -135,7 +135,6 @@ export default function Page() {
                 <SidebarHeaderComponent title="Friends" />
                 <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
-                        {error && <ErrorComponent message={error} />}
 
                         {/* Search Bar */}
                         <div className="mb-6">

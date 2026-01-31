@@ -63,7 +63,6 @@ export default function MessagesPage() {
     const { user, setUser } = useUser();
     const [friend, setFriend] = useState<any>(null);
 
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [loadingMore, setLoadingMore] = useState<boolean>(false);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -98,7 +97,7 @@ export default function MessagesPage() {
                 setHasMore(result.hasMore);
                 setLastMessageId(result.lastMessageId);
             } catch (err) {
-                setError(err instanceof Error ? err.message : "Failed to load messages");
+                toast.error(err instanceof Error ? err.message : "Failed to load messages");
             } finally {
                 setLoading(false);
             }
@@ -231,7 +230,7 @@ export default function MessagesPage() {
         } catch (error) {
             console.error("Failed to toggle follow:", error);
             setFriend((prevFriend: any) => prevFriend ? { ...prevFriend, isFollowing: wasFollowing } : prevFriend);
-            setError(error instanceof Error ? error.message : "Failed to toggle follow");
+            toast.error(error instanceof Error ? error.message : "Failed to toggle follow");
         }
     };
 
@@ -292,7 +291,6 @@ export default function MessagesPage() {
                 <SidebarInset>
                     <SidebarHeaderComponent title="Messages" />
                     {loading && <LoadingComponent text="Loading chat..." />}
-                    {error && <ErrorComponent message={error} />}
                 </SidebarInset>
             </SidebarProvider>
         )
@@ -303,7 +301,6 @@ export default function MessagesPage() {
             <AppSidebar user={sidebarUser} />
             <SidebarInset className="flex flex-col h-[98vh] overflow-hidden">
                 <SidebarHeaderComponent title="Messages" />
-                {error && <ErrorComponent message={error} />}
 
                 <div className="flex flex-1 flex-col overflow-hidden px-4 md:px-8 lg:px-12">
                     <div className="mx-auto w-full max-w-2xl flex flex-col flex-1 min-h-0 overflow-hidden">

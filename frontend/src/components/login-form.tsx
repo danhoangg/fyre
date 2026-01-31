@@ -17,18 +17,17 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signIn, signInWithGoogle } from "@/services/auth"
 import { ErrorComponent } from "./ui/error"
+import { toast } from "sonner"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
-  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setError(null)
     setIsLoading(true)
 
     try {
@@ -40,14 +39,13 @@ export function LoginForm({
       router.push("/")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to login"
-      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleGoogleLogin = async () => {
-    setError(null)
     setIsLoading(true)
 
     try {
@@ -55,7 +53,7 @@ export function LoginForm({
       router.push("/")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to login with Google"
-      setError(message)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -67,9 +65,6 @@ export function LoginForm({
         <CardContent className="grid p-0 md:grid-cols-2">
           <form className="p-6 md:p-8" onSubmit={handleLogin}>
             <FieldGroup>
-              {error && (
-                <ErrorComponent message={error} />
-              )}
               <div className="flex flex-col items-center gap-2 text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
                 <p className="text-muted-foreground text-balance">

@@ -23,6 +23,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context"
 import { useRouter } from "next/navigation"
 import { SidebarHeaderComponent } from "@/components/sidebar-header"
+import { toast } from "sonner"
 
 export default function CreatePostPage() {
     const router = useRouter()
@@ -36,7 +37,6 @@ export default function CreatePostPage() {
     }
 
     const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
 
     // form state
     const [title, setTitle] = useState("")
@@ -117,7 +117,6 @@ export default function CreatePostPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
-        setError(null)
 
         let newlyUploadedUrls: string[] = []
         try {
@@ -151,12 +150,11 @@ export default function CreatePostPage() {
             setNutrition("")
             images.forEach((i) => URL.revokeObjectURL(i.url))
             setImages([])
-            setError(null)
 
             router.push("/")
         } catch (err) {
             const message = err instanceof Error ? err.message : "Upload failed"
-            setError(message)
+            toast.error(message)
             if (newlyUploadedUrls.length > 0) {
                 try {
                     await Promise.all(newlyUploadedUrls.map((url) => deleteFileByUrl(url)))
@@ -308,13 +306,6 @@ export default function CreatePostPage() {
                             </div>
 
                             <Separator />
-                            {error && (
-                                <Alert className="border-red-500 bg-red-50">
-                                    <AlertDescription className="text-red-700">
-                                        {error}
-                                    </AlertDescription>
-                                </Alert>
-                            )}
 
                             <div className="flex gap-2">
                                 <Button type="submit" disabled={isLoading}>{isLoading && <Spinner />}<span>{!isLoading ? "Save" : "Uploading..."}</span></Button>

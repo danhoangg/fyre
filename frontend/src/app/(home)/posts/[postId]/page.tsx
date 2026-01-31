@@ -43,7 +43,6 @@ export default function PostPage() {
     const postId = typeof postIdParam === "string" ? decodeURIComponent(postIdParam) : "";
     const { user, setUser } = useUser();
 
-    const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [post, setPost] = useState<Post | null>(null);
     const [viewingImage, setViewingImage] = useState<{ postId: string; imageIndex: number } | null>(null);
@@ -93,13 +92,12 @@ export default function PostPage() {
 
     const fetchPost = async (postId: string) => {
         setLoading(true);
-        setError(null);
         try {
             const postData = await getPost(postId);
             setPost(postData);
         } catch (error) {
             console.error("Failed to load post:", error);
-            setError("Failed to load post");
+            toast.error("Failed to load post");
         } finally {
             setLoading(false);
         }
@@ -150,7 +148,6 @@ export default function PostPage() {
         if (!deleteConfirmPostId) return;
 
         setDeletingPostId(deleteConfirmPostId);
-        setError(null);
 
         try {
             await deletePost(deleteConfirmPostId);
@@ -159,7 +156,7 @@ export default function PostPage() {
             setDeleteConfirmPostId(null);
         } catch (error) {
             console.error("Failed to delete post:", error);
-            setError(error instanceof Error ? error.message : "Failed to delete post");
+            toast.error(error instanceof Error ? error.message : "Failed to delete post");
         } finally {
             setDeletingPostId(null);
         }
@@ -224,7 +221,7 @@ export default function PostPage() {
         } catch (error) {
             console.error("Failed to toggle follow:", error);
             setPost(prevPost => prevPost ? { ...prevPost, isAuthorFollowed: wasFollowing } : prevPost);
-            setError(error instanceof Error ? error.message : "Failed to toggle follow");
+            toast.error(error instanceof Error ? error.message : "Failed to toggle follow");
         }
     };
 
@@ -363,7 +360,6 @@ export default function PostPage() {
                 <SidebarInset>
                     <SidebarHeaderComponent title="Post" />
                     {loading && <LoadingComponent text="Loading post..." />}
-                    {error && <ErrorComponent message={error} />}
                 </SidebarInset>
             </SidebarProvider>
         )
@@ -374,7 +370,6 @@ export default function PostPage() {
             <AppSidebar user={sidebarUser} />
             <SidebarInset>
                 <SidebarHeaderComponent title="Post" />
-                {error && <ErrorComponent message={error} />}
                 <div className="flex flex-1 flex-col gap-6 p-4 md:p-8 lg:p-12 pt-0">
                     <div className="mx-auto w-full max-w-2xl">
                         <div className="flex items-center justify-between w-full">

@@ -7,7 +7,7 @@ import {
 } from "firebase/auth"
 import { auth, functions } from "@/lib/firebase"
 import { httpsCallable } from "firebase/functions"
-import Cookies from "js-cookie"
+// import Cookies from "js-cookie"
 
 // Callable function references
 const checkUsernameCallable = httpsCallable(functions, "checkUsername");
@@ -16,8 +16,7 @@ const createSessionCallable = httpsCallable(functions, "createSession");
 const revokeSessionCallable = httpsCallable(functions, "revokeSession");
 
 export const signUp = async (username: string, email: string, password: string) => {
-    // Clear any existing session cookie before attempting to sign up
-    Cookies.remove("session", { path: "/" });
+    // No need to clear session cookie on client; server will overwrite
     
     // Check if username is already taken via Cloud function
     const { data: { available } } = await checkUsernameCallable({ username }) as { data: { available: boolean } };
@@ -28,27 +27,21 @@ export const signUp = async (username: string, email: string, password: string) 
 
     const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-    // Create session cookie via serverless Cloud Function
-    const idToken = await cred.user.getIdToken()
-    try {
-        const result = await createSessionCallable({ idToken });
-        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
-        
-        Cookies.set("session", sessionCookie, {
-            expires: maxAge / 86400, // js-cookie uses days, not seconds
-            path: "/",
-            secure: true,
-            sameSite: "lax",
+        // Create session cookie via new API route
+        const idToken = await cred.user.getIdToken();
+        const res = await fetch("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken })
         });
-    } catch (error) {
-        console.error("Failed to create session in Cloud Function:", error);
-        throw new Error("Login failed: Could not establish session.");
-    }
+        if (!res.ok) {
+            const { error } = await res.json();
+            throw new Error(error || "Login failed: Could not establish session.");
+        }
 }
 
 export const signIn = async (usernameOrEmail: string, password: string) => {
-    // Clear any existing session cookie before attempting to sign in
-    Cookies.remove("session", { path: "/" });
+    // No need to clear session cookie on client; server will overwrite
     
     let email = usernameOrEmail
 
@@ -62,49 +55,38 @@ export const signIn = async (usernameOrEmail: string, password: string) => {
     // Sign in with email and password
     const cred = await signInWithEmailAndPassword(auth, email, password)
 
-    // Create session cookie
-    const idToken = await cred.user.getIdToken()
-    try {
-        const result = await createSessionCallable({ idToken });
-        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
-        
-        Cookies.set("session", sessionCookie, {
-            expires: maxAge / 86400,
-            path: "/",
-            secure: true,
-            sameSite: "lax",
+        // Create session cookie via new API route
+        const idToken = await cred.user.getIdToken();
+        const res = await fetch("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken })
         });
-    } catch (error) {
-        console.error("Failed to create session in signIn:", error);
-        throw new Error("Login failed during session exchange.");
-    }
+        if (!res.ok) {
+            const { error } = await res.json();
+            throw new Error(error || "Login failed during session exchange.");
+        }
 }
 
 export const signInWithGoogle = async () => {
-    // Clear any existing session cookie before attempting to sign in
-    Cookies.remove("session", { path: "/" });
+    // No need to clear session cookie on client; server will overwrite
     
     const provider = new GoogleAuthProvider();
     // Sign in. The Firestore document will be created automatically 
     // by the syncUserRecord Auth trigger if it doesn't exist.
     const cred = await signInWithPopup(auth, provider);
 
-    // Create session cookie
-    const idToken = await cred.user.getIdToken()
-    try {
-        const result = await createSessionCallable({ idToken });
-        const { sessionCookie, maxAge } = result.data as { sessionCookie: string, maxAge: number };
-        
-        Cookies.set("session", sessionCookie, {
-            expires: maxAge / 86400,
-            path: "/",
-            secure: true,
-            sameSite: "lax",
+        // Create session cookie via new API route
+        const idToken = await cred.user.getIdToken();
+        const res = await fetch("/api/session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken })
         });
-    } catch (error) {
-        console.error("Failed to create session in Google Login:", error);
-        throw new Error("Login failed during Google session exchange.");
-    }
+        if (!res.ok) {
+            const { error } = await res.json();
+            throw new Error(error || "Login failed during Google session exchange.");
+        }
 }
 
 export const logOut = async () => {
@@ -115,5 +97,6 @@ export const logOut = async () => {
     }
     
     await signOut(auth);
-    Cookies.remove("session", { path: "/" });
+    // Remove session cookie via API route
+    await fetch("/api/session", { method: "DELETE" });
 }
